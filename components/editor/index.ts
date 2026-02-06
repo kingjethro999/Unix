@@ -1,0 +1,7 @@
+export { EditorLayout } from './editor-layout'
+export { FileSidebar } from './file-sidebar'
+export { EditorTabs } from './editor-tabs'
+export { EditorWorkspace } from './editor-workspace'
+export { AIChatSidebar } from './ai-chat-sidebar'
+export { editorStore, useEditorState, useActiveFile } from './editor-store'
+export type { EditorFile, EditorTab, EditorState } from './editor-store'

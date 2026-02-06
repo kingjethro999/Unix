@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Unix - AI-Powered Creative Writing Studio
 
-## Getting Started
+Unix is a modern, distraction-free writing environment enhanced by a context-aware AI assistant. Built for novelists and creative writers, it seamlessly integrates advanced AI tools directly into the writing workflow.
 
-First, run the development server:
+## 🚀 Usage
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### AI Chat Sidebar
+- **Context Aware**: The AI knows about your current file, selected text, and other project files.
+- **Smart Tools**: can `write`, `update`, `create`, and `rename` files directly.
+- **Persistent History**: Chat history is saved to the database, so you never lose a conversation.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Smart Features
+- **Auto-Renaming**: When the AI writes a new chapter or article for you, it automatically renames "Untitled Page" to a relevant title.
+- **Style Guide**: Create a `.unixrc` file to enforce specific writing styles, character voices, or world-building rules. The AI will adhere to these rules in every interaction.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠 Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework**: [Next.js 16](https://nextjs.org/) (Turbopack)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: [Supabase](https://supabase.com/) (PostgreSQL + Vector)
+- **AI Model**: Google Gemini 2.5 Flash
+- **State Management**: Zustand (via `editor-store`)
 
-## Learn More
+## 📦 Installation
 
-To learn more about Next.js, take a look at the following resources:
+1.  **Clone the repository**
+    ```bash
+    git clone <your-repo-url>
+    cd unix
+    ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2.  **Install dependencies**
+    ```bash
+    npm install
+    # or
+    pnpm install
+    ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3.  **Environment Setup**
+    Create a `.env` file with the following keys:
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    GEMINI_API_KEY=your_gemini_api_key
+    ```
 
-## Deploy on Vercel
+4.  **Database Migration**
+    Run the SQL migrations in your Supabase dashboard (found in `migrations/` or `chat_history.sql`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5.  **Run Development Server**
+    ```bash
+    npm run dev
+    ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📂 Project Structure
+
+- `app/`: Next.js App Router pages and API routes.
+- `components/`: UI components (Editor, Sidebar, etc.).
+- `lib/`: Utilities and Supabase client configurations.
+- `migrations/`: SQL files for setting up the database schema.
