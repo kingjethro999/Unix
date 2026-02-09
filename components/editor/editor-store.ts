@@ -977,6 +977,28 @@ export const editorStore = {
     }
     emitChange()
   },
+
+  setLeftSidebar: (visible: boolean) => {
+    state = {
+      ...state,
+      layout: {
+        ...state.layout,
+        leftSidebarVisible: visible,
+      },
+    }
+    emitChange()
+  },
+
+  setRightSidebar: (visible: boolean) => {
+    state = {
+      ...state,
+      layout: {
+        ...state.layout,
+        rightSidebarVisible: visible,
+      },
+    }
+    emitChange()
+  },
 }
 
 // React hooks

@@ -38,5 +38,8 @@ This ensures that if you start an AI refactor on your desktop, you can review an
 *   **Cross-Device Continuity:** Being able to draft a prompt on one screen and see the result on another instantly.
 
 ## What's next for Unix
-*   **Collaborative Writing:** True multi-user editing (Google Docs style) but with AI as a third collaborator.
-*   **Export Engine:** One-click typesetting for PDF and ePub formats effectively.
+*   **Collaborative Writing:** True multi-user editing (Google Docs style) but with AI as a third collaborator. Imagine your co-author and the AI brainstorming plot twists together in real-time.
+*   **Export Engine:** One-click typesetting for PDF, ePub, and DOCX formats. We're building templates that match industry standards for manuscript submissions.
+*   **Version Branching:** Explore "what if" scenarios by branching your story. Try a different ending without losing your original, then merge the best parts.
+*   **Community Features:** Share excerpts, get feedback from other writers, and join critique circles—all within the Unix ecosystem.
+

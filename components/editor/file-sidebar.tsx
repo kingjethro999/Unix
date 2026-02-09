@@ -170,14 +170,19 @@ function FileItem({ file, isActive, onDragStart, onExport, readOnly }: FileItemP
 }
 
 import { HelpModal } from './help-modal' // Import HelpModal
-import { BookOpen } from 'lucide-react' // Import BookOpen icon
+import { BookOpen, FolderOpen, Globe } from 'lucide-react' // Import BookOpen icon
+import { WikiSidebar } from './wiki-sidebar'
+
+type SidebarTab = 'files' | 'wiki'
 
 interface FileSidebarProps {
   readOnly?: boolean
+  userId?: string
 }
 
-export function FileSidebar({ readOnly }: FileSidebarProps) {
+export function FileSidebar({ readOnly, userId }: FileSidebarProps) {
   const state = useEditorState()
+  const [activeTab, setActiveTab] = useState<SidebarTab>('files')
   const [searchQuery, setSearchQuery] = useState('')
   const [isNewFileModalOpen, setIsNewFileModalOpen] = useState(false)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
@@ -221,8 +226,8 @@ export function FileSidebar({ readOnly }: FileSidebarProps) {
     }
   }
 
-  const activeTab = state.tabs.find((t) => t.id === state.activeTabId)
-  const activeFileId = activeTab?.fileId || null
+  const activeEditorTab = state.tabs.find((t) => t.id === state.activeTabId)
+  const activeFileId = activeEditorTab?.fileId || null
 
   const handleFileDragStart = (e: React.DragEvent, file: EditorFile) => {
     e.dataTransfer.setData(
@@ -299,58 +304,100 @@ export function FileSidebar({ readOnly }: FileSidebarProps) {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600"
-          />
-          <input
-            type="text"
-            placeholder="Search files..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
-          />
-        </div>
-      </div>
-
-      {/* File List */}
-      <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
-        <div className="space-y-1">
-          <p className="px-3 py-2 text-[10px] uppercase tracking-widest text-zinc-600 font-medium">
-            Files
-          </p>
-          {filteredFiles.map((file, index) => (
-            <motion.div
-              key={file.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
+        {/* Tab Toggle - only show in editor mode */}
+        {!readOnly && (
+          <div className="flex gap-1 mb-3">
+            <button
+              onClick={() => setActiveTab('files')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                activeTab === 'files'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+              )}
             >
-              <FileItem
-                file={file}
-                isActive={file.id === activeFileId}
-                onDragStart={handleFileDragStart}
-                onExport={handleExport}
-                readOnly={readOnly}
-              />
-            </motion.div>
-          ))}
-          {filteredFiles.length === 0 && (
-            <p className="px-3 py-6 text-xs text-zinc-600 text-center">
-              No files found
-            </p>
-          )}
-        </div>
+              <FolderOpen size={14} />
+              Files
+            </button>
+            <button
+              onClick={() => setActiveTab('wiki')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                activeTab === 'wiki'
+                  ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+              )}
+            >
+              <Globe size={14} />
+              Wiki
+            </button>
+          </div>
+        )}
+
+        {/* Search - only show for files tab */}
+        {activeTab === 'files' && (
+          <div className="relative">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600"
+            />
+            <input
+              type="text"
+              placeholder="Search files..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+            />
+          </div>
+        )}
       </div>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-zinc-800/50">
-        <div className="flex items-center gap-2 text-[10px] text-zinc-600">
-          <span className="font-mono">{state.files.length} files</span>
-        </div>
-      </div>
+      {/* Content based on active tab */}
+      {activeTab === 'files' ? (
+        <>
+          {/* File List */}
+          <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+            <div className="space-y-1">
+              <p className="px-3 py-2 text-[10px] uppercase tracking-widest text-zinc-600 font-medium">
+                Files
+              </p>
+              {filteredFiles.map((file, index) => (
+                <motion.div
+                  key={file.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <FileItem
+                    file={file}
+                    isActive={file.id === activeFileId}
+                    onDragStart={handleFileDragStart}
+                    onExport={handleExport}
+                    readOnly={readOnly}
+                  />
+                </motion.div>
+              ))}
+              {filteredFiles.length === 0 && (
+                <p className="px-3 py-6 text-xs text-zinc-600 text-center">
+                  No files found
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-3 border-t border-zinc-800/50">
+            <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+              <span className="font-mono">{state.files.length} files</span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <WikiSidebar
+          folderId={state.workspaceId || ''}
+          userId={userId || state.userId || ''}
+        />
+      )}
 
       <NewFileModal
         isOpen={isNewFileModalOpen}

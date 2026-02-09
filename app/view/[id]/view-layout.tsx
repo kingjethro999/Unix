@@ -5,6 +5,7 @@ import { editorStore } from '@/components/editor/editor-store'
 import { FileSidebar } from '@/components/editor/file-sidebar'
 import { ViewWorkspace } from '@/components/editor/view-workspace'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import Link from 'next/link'
 
 interface ViewLayoutProps {
     folder: { id: string; name: string }
@@ -37,7 +38,11 @@ export function ViewLayout({ folder, initialPages }: ViewLayoutProps) {
                         )}
                     </button>
                     <div className="h-4 w-px bg-zinc-800" />
-                    <span className="text-xs text-zinc-600 font-mono">Unix View</span>
+                    <span className="text-xs text-zinc-600 font-mono">
+                        <Link href="/">
+                            Unix View
+                        </Link>
+                    </span>
                 </div>
 
                 <div className="text-sm font-medium text-zinc-400">

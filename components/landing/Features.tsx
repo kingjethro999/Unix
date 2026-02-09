@@ -5,11 +5,13 @@ import {
   Sparkles,
   FileText,
   GitCompare,
-  Users,
+  Book,
   Zap,
-  Shield,
-  Layers,
+  WifiOff,
+  Search,
   MessageSquare,
+  BarChart3,
+  Users,
 } from 'lucide-react'
 
 const features = [
@@ -21,10 +23,10 @@ const features = [
     color: 'blue',
   },
   {
-    icon: MessageSquare,
-    title: '@Mention System',
+    icon: Book,
+    title: 'World-Building Wiki',
     description:
-      'Drag pages into chat or type @ to reference specific chapters. The AI uses that context for accurate responses.',
+      'Track characters, locations, timelines, and lore. The AI cross-references your wiki for consistency across your universe.',
     color: 'emerald',
   },
   {
@@ -35,38 +37,38 @@ const features = [
     color: 'purple',
   },
   {
-    icon: Layers,
-    title: 'Multi-Tab Editor',
+    icon: WifiOff,
+    title: 'Mobile & Offline Mode',
     description:
-      'Keep your character bible open in one tab, your chapter in another. Switch instantly like a code editor.',
+      "Write anywhere, anytime. Manuscripts sync seamlessly when you're back online with intelligent conflict resolution.",
     color: 'orange',
   },
   {
-    icon: Users,
-    title: 'Real-Time Collaboration',
+    icon: Search,
+    title: 'Plot Hole Detector',
     description:
-      'Share folders with view or edit access. See collaborator cursors. Work together on the same document.',
+      'AI scans your entire manuscript for logical inconsistencies, timeline errors, and character contradictions.',
     color: 'pink',
   },
   {
-    icon: Zap,
-    title: 'Instant Sync',
+    icon: Users,
+    title: 'Character Voice Analyzer',
     description:
-      'Every keystroke is debounced and synced. Your work is always saved. Never lose a single word.',
+      'Ensures each character speaks distinctly and consistently throughout your story with AI-powered analysis.',
     color: 'yellow',
   },
   {
-    icon: FileText,
-    title: 'Nested Folders',
+    icon: BarChart3,
+    title: 'Pacing Heatmaps',
     description:
-      'Organize your novel with infinite nesting. Drag and drop to restructure. Search across all pages instantly.',
+      'Visualize tension and pacing across chapters. See where your story accelerates or needs more momentum.',
     color: 'cyan',
   },
   {
-    icon: Shield,
-    title: 'Privacy Controls',
+    icon: MessageSquare,
+    title: 'AI Research Assistant',
     description:
-      'Keep folders private, share via link, or require approval. You control who sees your work.',
+      'Need historical accuracy or inspiration? AI searches and summarizes research, citing sources for your notes.',
     color: 'red',
   },
 ]
@@ -81,6 +83,7 @@ const colorClasses = {
   cyan: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
   red: 'bg-red-500/10 text-red-400 border-red-500/20',
 }
+
 
 export function Features() {
   return (

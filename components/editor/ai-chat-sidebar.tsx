@@ -221,7 +221,8 @@ export function AIChatSidebar() {
           messages: apiMessages,
           contextFiles,
           allFiles,
-          activeSelection: editorState.activeSelection
+          activeSelection: editorState.activeSelection,
+          folderId: editorState.workspaceId
         }),
       })
 
@@ -290,7 +291,7 @@ export function AIChatSidebar() {
             setMessages((prev) => [...prev, aiMessage])
           } else if (call.name === 'create_file') {
             const { title, content, actionDescription } = call.args
-            editorStore.createFile(title)
+            await editorStore.createFile(title)
 
             // Find the newly created file and update its content
             const newFile = editorStore.getState().files.find(f => f.title === title)
@@ -311,7 +312,7 @@ export function AIChatSidebar() {
             setMessages((prev) => [...prev, aiMessage])
           } else if (call.name === 'rename_file') {
             const { fileId, newTitle } = call.args
-            editorStore.renameFile(fileId, newTitle)
+            await editorStore.renameFile(fileId, newTitle)
 
             setMessages(prev => [...prev, {
               id: crypto.randomUUID(),
@@ -325,7 +326,7 @@ export function AIChatSidebar() {
             const file = editorStore.getState().files.find(f => f.id === fileId)
             const title = file ? file.title : 'File'
 
-            editorStore.deleteFile(fileId)
+            await editorStore.deleteFile(fileId)
 
             setMessages(prev => [...prev, {
               id: crypto.randomUUID(),
@@ -429,33 +430,38 @@ export function AIChatSidebar() {
                 message.role === 'user' && 'flex-row-reverse',
               )}
             >
-              <div
-                className={cn(
-                  'w-7 h-7 rounded-lg flex items-center justify-center shrink-0',
-                  message.role === 'assistant'
-                    ? 'bg-gradient-to-br from-cyan-500 to-blue-600'
-                    : 'bg-zinc-800',
-                )}
-              >
-                {message.role === 'assistant' ? (
-                  message.action?.type === 'read' ? <ScanEye size={14} className="text-white" /> :
-                    <Sparkles size={14} className="text-white" />
-                ) : (
+              {/* Only show icon for user messages */}
+              {message.role === 'user' && (
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-zinc-800">
                   <MessageSquare size={14} className="text-zinc-400" />
-                )}
-              </div>
+                </div>
+              )}
               <div
                 className={cn(
-                  'flex-1 max-w-[85%]',
-                  message.role === 'user' && 'text-right',
+                  'flex-1',
+                  message.role === 'user' ? 'max-w-[85%] text-right' : 'max-w-full',
                 )}
               >
+                {/* Show attachments above user message */}
+                {message.role === 'user' && message.attachments && message.attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1 justify-end mb-1">
+                    {message.attachments.map((att) => (
+                      <span
+                        key={att.id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded text-xs"
+                      >
+                        <FileText size={10} />
+                        {att.title}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div
                   className={cn(
-                    'inline-block px-3 py-2 rounded-xl text-sm text-left', // Always text-left for content legibility
+                    'text-sm text-left',
                     message.role === 'assistant'
-                      ? 'bg-zinc-900 text-zinc-300 rounded-tl-sm'
-                      : 'bg-cyan-600 text-white rounded-tr-sm',
+                      ? 'text-zinc-300' // Plain text, no bubble
+                      : 'inline-block px-3 py-2 rounded-xl bg-cyan-600 text-white rounded-tr-sm', // User keeps bubble
                   )}
                 >
                   <div

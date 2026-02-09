@@ -64,7 +64,8 @@ const chatSchema = z.object({
         text: z.string(),
         start: z.number(),
         end: z.number()
-    }).nullable().optional()
+    }).nullable().optional(),
+    folderId: z.string().optional()
 })
 
 export async function POST(request: NextRequest) {
@@ -76,6 +77,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { error: 'GEMINI_API_KEY is not set' },
                 { status: 500 }
+            )
+        }
+
+        // Initialize Supabase Client early for wiki fetch
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
             )
         }
 
@@ -96,7 +108,111 @@ export async function POST(request: NextRequest) {
             styleGuideText = `\n\n*** STYLE GUIDE ENFORCEMENT (.unixrc) ***\nYou MUST adhere to these rules:\n${styleFile.content}\n******************************************`
         }
 
+        // WIKI CONTEXT - Fetch world-building entries for consistency
+        let wikiContext = ''
+        if (data.folderId) {
+            try {
+                const { data: wikiEntries } = await supabase
+                    .from('wiki_entries')
+                    .select('type, name, description, metadata')
+                    .eq('folder_id', data.folderId)
+                    .order('name', { ascending: true })
+
+                if (wikiEntries && wikiEntries.length > 0) {
+                    wikiContext = '\n\n*** WORLD-BUILDING WIKI ***\n'
+
+                    const characters = wikiEntries.filter(e => e.type === 'character')
+                    const locations = wikiEntries.filter(e => e.type === 'location')
+                    const lore = wikiEntries.filter(e => e.type === 'lore')
+                    const items = wikiEntries.filter(e => e.type === 'item')
+                    const timelines = wikiEntries.filter(e => e.type === 'timeline')
+
+                    if (characters.length > 0) {
+                        wikiContext += '\nCHARACTERS:\n'
+                        characters.forEach(c => {
+                            const meta = c.metadata as Record<string, any> || {}
+                            wikiContext += `- ${c.name}`
+                            if (meta.aliases?.length) wikiContext += ` (aka ${meta.aliases.join(', ')})`
+                            if (c.description) wikiContext += `: ${c.description}`
+                            if (meta.traits?.length) wikiContext += ` [Traits: ${meta.traits.join(', ')}]`
+                            wikiContext += '\n'
+                        })
+                    }
+
+                    if (locations.length > 0) {
+                        wikiContext += '\nLOCATIONS:\n'
+                        locations.forEach(l => {
+                            const meta = l.metadata as Record<string, any> || {}
+                            wikiContext += `- ${l.name}`
+                            if (l.description) wikiContext += `: ${l.description}`
+                            if (meta.significance) wikiContext += ` (${meta.significance})`
+                            wikiContext += '\n'
+                        })
+                    }
+
+                    if (lore.length > 0) {
+                        wikiContext += '\nLORE:\n'
+                        lore.forEach(l => {
+                            wikiContext += `- ${l.name}: ${l.description || 'No description'}\n`
+                        })
+                    }
+
+                    if (items.length > 0) {
+                        wikiContext += '\nITEMS:\n'
+                        items.forEach(i => {
+                            const meta = i.metadata as Record<string, any> || {}
+                            wikiContext += `- ${i.name}`
+                            if (i.description) wikiContext += `: ${i.description}`
+                            if (meta.powers?.length) wikiContext += ` [Powers: ${meta.powers.join(', ')}]`
+                            wikiContext += '\n'
+                        })
+                    }
+
+                    if (timelines.length > 0) {
+                        wikiContext += '\nTIMELINE EVENTS:\n'
+                        timelines.forEach(t => {
+                            const meta = t.metadata as Record<string, any> || {}
+                            wikiContext += `- ${meta.date || 'Unknown date'}: ${t.name}`
+                            if (t.description) wikiContext += ` - ${t.description}`
+                            wikiContext += '\n'
+                        })
+                    }
+
+                    wikiContext += '\nYou MUST maintain consistency with these world-building elements.\n******************************'
+                }
+            } catch (err) {
+                console.error('Failed to fetch wiki entries:', err)
+            }
+        }
+
+
         // Prepare system instruction
+        const mcpEnforcement = wikiContext ? `
+*** MODEL CONTEXT PROTOCOL (MCP) ENFORCEMENT ***
+The wiki above represents CANONICAL FACTS about this story's universe.
+When writing or editing content, you MUST:
+
+1. VALIDATE: Before writing, cross-check ALL character names, traits, appearances, and abilities against the wiki
+2. RESPECT TIMELINE: Events must be chronologically possible based on established timeline
+3. PRESERVE LOCATIONS: Location descriptions must match wiki entries exactly
+4. MAINTAIN VOICE: Characters should speak/act according to their wiki-defined traits
+5. HONOR LORE: Magic systems, rules, and world-building facts cannot be violated
+
+⚠️ CONSISTENCY ALERTS ⚠️
+If you detect that YOUR OUTPUT would contradict wiki facts:
+- STOP before writing contradictory content
+- Alert the user: "⚠️ CONSISTENCY WARNING: [specific issue]"
+- Suggest how to resolve the conflict
+- Only proceed after user confirms
+
+If you detect the USER'S EXISTING content contradicts wiki facts:
+- Point it out diplomatically
+- Offer to fix it
+
+NEVER silently write content that contradicts established wiki facts.
+*************************************************
+` : ''
+
         const systemPrompt = `You are an expert creative writing assistant integrated into a novel/story writing editor called Unix.
 You have access to the user's files and can edit or create them directly using tools.
 
@@ -104,7 +220,8 @@ ENVIRONMENT AWARENESS:
 ${fileListText || 'No files currently in the project.'}
 ${selectionText}
 ${styleGuideText}
-
+${wikiContext}
+${mcpEnforcement}
 CRITICAL INSTRUCTIONS:
 1. When asked to write, edit, expand, or create content, you MUST use the appropriate tool ('update_file' or 'create_file').
 2. Do NOT output the full content in the chat. Use tools to write content.
@@ -291,17 +408,6 @@ SMART RENAMING (CRITICAL):
             ]
         }]
 
-        // Initialize Supabase Client
-        const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-
-        if (!user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            )
-        }
-
         // SAVE USER MESSAGE
         if (data.messages.length > 0 && data.messages[data.messages.length - 1].role === 'user') {
             const lastMsg = data.messages[data.messages.length - 1]
@@ -318,7 +424,7 @@ SMART RENAMING (CRITICAL):
             }
         }
 
-        const response = await fetch(`${BASE_URL}?key=${API_KEY}`, {
+        const response = await fetch(`${BASE_URL}?key = ${API_KEY} `, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -345,7 +451,7 @@ SMART RENAMING (CRITICAL):
             }
 
             return NextResponse.json(
-                { error: `Gemini API Error: ${response.statusText}` },
+                { error: `Gemini API Error: ${response.statusText} ` },
                 { status: response.status }
             )
         }
@@ -366,43 +472,45 @@ SMART RENAMING (CRITICAL):
         // SAVE ASSISTANT RESPONSE
         const textResponse = parts.map((p: any) => p.text).join('')
 
-        let contentToSave = textResponse
+        // 1. Save text response if exists
+        if (textResponse) {
+            const { error: insertError } = await supabase.from('chat_messages').insert({
+                user_id: user.id,
+                role: 'assistant',
+                content: textResponse,
+                attachments: '[]'
+            })
+
+            if (insertError) {
+                console.error('Error saving assistant text message:', insertError)
+            }
+        }
+
         const functionCalls = parts.filter((p: any) => p.functionCall).map((p: any) => p.functionCall)
 
-        // Prepare action metadata for attachments column
-        let actionAttachment: any = null
-
-        if (functionCalls.length > 0) {
-            const call = functionCalls[0]
+        // 2. Save each tool call as a separate message
+        for (const call of functionCalls) {
             const args = call.args || {}
+            let contentToSave = ''
 
-            // 1. Generate descriptive content if empty
-            if (!contentToSave) {
-                if (call.name === 'update_file') {
-                    // Try to get file title? We don't have it easily here unless we query DB or pass it. 
-                    // args.actionDescription is best bet.
-                    contentToSave = args.actionDescription || `Updated file "${args.fileId}".`
-                } else if (call.name === 'create_file') {
-                    contentToSave = args.actionDescription || `Created file "${args.title}".`
-                } else if (call.name === 'rename_file') {
-                    contentToSave = `Renamed file to "${args.newTitle}".`
-                } else if (call.name === 'delete_file') {
-                    contentToSave = `Deleted file "${args.fileId}".`
-                } else if (call.name === 'replace_text') {
-                    contentToSave = `Replaced text in file "${args.fileId}".`
-                } else if (call.name === 'search_and_replace') {
-                    contentToSave = `Replaced "${args.query}" with "${args.replacement}" ${args.scope === 'workspace' ? 'in workspace' : 'in file'}.`
-                } else {
-                    contentToSave = `Performed action: ${call.name}`
-                }
+            // Generate descriptive content
+            if (call.name === 'update_file') {
+                contentToSave = args.actionDescription || `Updated file "${args.fileId}".`
+            } else if (call.name === 'create_file') {
+                contentToSave = args.actionDescription || `Created file "${args.title}".`
+            } else if (call.name === 'rename_file') {
+                contentToSave = `Renamed file to "${args.newTitle}".`
+            } else if (call.name === 'delete_file') {
+                contentToSave = `Deleted file "${args.fileId}".`
+            } else if (call.name === 'replace_text') {
+                contentToSave = `Replaced text in file "${args.fileId}".`
+            } else if (call.name === 'search_and_replace') {
+                contentToSave = `Replaced "${args.query}" with "${args.replacement}" ${args.scope === 'workspace' ? 'in workspace' : 'in file'}.`
+            } else {
+                contentToSave = `Performed action: ${call.name} `
             }
 
-            // 2. Prepare action metadata
-            // We use a special 'action_metadata' type or just put it in the array
-            // The frontend expects { id, title }, so we might need to be careful or use a valid JSON structure 
-            // that won't break frontend if it expects array of objects.
-            // Let's use a special object that we filter out on frontend.
-
+            // Prepare action metadata
             let detail = ''
             if (call.name === 'update_file') detail = args.actionDescription || 'Update'
             else if (call.name === 'create_file') detail = args.title
@@ -410,7 +518,7 @@ SMART RENAMING (CRITICAL):
             else if (call.name === 'replace_text') detail = 'Text Replacement'
             else if (call.name === 'search_and_replace') detail = 'Global Replace'
 
-            actionAttachment = {
+            const actionAttachment = {
                 type: 'action_metadata', // Marker
                 action: {
                     type: call.name === 'update_file' || call.name === 'replace_text' || call.name === 'search_and_replace' ? 'review' : 'write',
@@ -418,20 +526,16 @@ SMART RENAMING (CRITICAL):
                     fileId: args.fileId // Useful for review buttons
                 }
             }
-        }
-
-        if (contentToSave) {
-            const attachmentsToSave = actionAttachment ? [actionAttachment] : []
 
             const { error: insertError } = await supabase.from('chat_messages').insert({
                 user_id: user.id,
                 role: 'assistant',
                 content: contentToSave,
-                attachments: JSON.stringify(attachmentsToSave)
+                attachments: JSON.stringify([actionAttachment])
             })
 
             if (insertError) {
-                console.error('Error saving assistant message:', insertError)
+                console.error('Error saving assistant tool message:', insertError)
             }
         }
 

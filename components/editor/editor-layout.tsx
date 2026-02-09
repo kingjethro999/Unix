@@ -10,7 +10,7 @@ import {
   Undo2,
   Redo2,
   Command,
-  Share2,
+  Share2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEditorState, editorStore, useActiveFile } from './editor-store'
@@ -18,9 +18,11 @@ import { FileSidebar } from './file-sidebar'
 import { EditorTabs } from './editor-tabs'
 import { EditorWorkspace } from './editor-workspace'
 import { AIChatSidebar } from './ai-chat-sidebar'
+import { AnalysisSidebar } from './analysis-sidebar'
 import { ExportDialog } from './export-dialog'
 import { ShareModal } from './share-modal'
 import { motion, AnimatePresence } from 'motion/react'
+import Link from 'next/link'
 
 interface ResizeHandleProps {
   side: 'left' | 'right'
@@ -98,6 +100,7 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
   const activeFile = useActiveFile()
   const [isExportOpen, setIsExportOpen] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
+  const [rightSidebarTab, setRightSidebarTab] = useState<'chat' | 'analysis'>('chat')
 
   // Force re-render on history changes (subscribing to store updates)
   const [, setTick] = useState(0)
@@ -114,6 +117,23 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
   useEffect(() => {
     void editorStore.initFromDatabase(folder, initialPages, userId)
   }, [folder.id]) // Re-init only if folder changes
+
+  // Auto-hide sidebars on mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobile = window.innerWidth < 768
+      if (isMobile) {
+        editorStore.setLeftSidebar(false)
+        editorStore.setRightSidebar(false)
+      }
+    }
+
+    // Check on mount
+    checkMobile()
+
+    // No resize listener - only check once on mount
+    // User can manually toggle afterwards
+  }, [])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -205,7 +225,11 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
             )}
           </button>
           <div className="h-4 w-px bg-zinc-800" />
-          <span className="text-xs text-zinc-600 font-mono">Unix Editor</span>
+          <span className="text-xs text-zinc-600 font-mono">
+            <Link href="/">
+              Unix Editor
+            </Link>
+          </span>
         </div>
 
         {/* Toolbar Actions */}
@@ -259,7 +283,7 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-500">
+          <div className="hidden md:flex items-center gap-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-500">
             <Command size={12} />
             <span>K</span>
           </div>
@@ -289,7 +313,7 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="shrink-0 overflow-hidden"
             >
-              <FileSidebar />
+              <FileSidebar userId={userId} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -312,7 +336,7 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
           <ResizeHandle side="right" onResize={handleRightResize} />
         )}
 
-        {/* Right Sidebar (AI Chat) */}
+        {/* Right Sidebar (AI Chat / Analysis) */}
         <AnimatePresence mode="wait">
           {layout.rightSidebarVisible && (
             <motion.div
@@ -320,9 +344,37 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
               animate={{ width: layout.rightSidebarWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.2, ease: 'easeInOut' }}
-              className="shrink-0 overflow-hidden"
+              className="shrink-0 overflow-hidden flex flex-col h-full"
             >
-              <AIChatSidebar />
+              {/* Tab Switcher */}
+              <div className="flex border-b border-zinc-800/50 bg-zinc-950 shrink-0">
+                <button
+                  onClick={() => setRightSidebarTab('chat')}
+                  className={cn(
+                    'flex-1 px-4 py-2.5 text-xs font-medium transition-colors',
+                    rightSidebarTab === 'chat'
+                      ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5'
+                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                  )}
+                >
+                  AI Chat
+                </button>
+                <button
+                  onClick={() => setRightSidebarTab('analysis')}
+                  className={cn(
+                    'flex-1 px-4 py-2.5 text-xs font-medium transition-colors',
+                    rightSidebarTab === 'analysis'
+                      ? 'text-pink-400 border-b-2 border-pink-400 bg-pink-500/5'
+                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                  )}
+                >
+                  Analysis
+                </button>
+              </div>
+              {/* Tab Content */}
+              <div className="flex-1 overflow-hidden">
+                {rightSidebarTab === 'chat' ? <AIChatSidebar /> : <AnalysisSidebar />}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
