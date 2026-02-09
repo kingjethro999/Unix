@@ -62,7 +62,7 @@ const testimonials = [
 
 export function Testimonials() {
   return (
-    <section id="testimonials" className="relative py-24 bg-zinc-900">
+    <section id="testimonials" className="relative py-24 bg-zinc-900 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0">
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-600/5 rounded-full blur-[128px]" />
