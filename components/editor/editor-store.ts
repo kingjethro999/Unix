@@ -162,7 +162,7 @@ function loadFromLocalStorage(fileId: string): string | null {
 // Debounced save to database with offline support
 let saveTimeouts: Map<string, NodeJS.Timeout> = new Map()
 
-async function debouncedSave(fileId: string, content: string) {
+async function debouncedSave(fileId: string, content: string, reviewState?: { is_reviewing: boolean, original_content: string | null | undefined } | null) {
   // 1. IMMEDIATE: Save to localStorage for instant offline access
   saveToLocalStorage(fileId, content)
 
@@ -188,7 +188,20 @@ async function debouncedSave(fileId: string, content: string) {
     try {
       // Online: sync to database
       const bodyText = content.replace(/[#*_`~\[\]()]/g, '').trim()
-      await updatePageContent(fileId, { content }, bodyText)
+
+      // If reviewState is explicitly passed (null or object), use it.
+      // Otherwise, infer from current file state if undef/missing
+      let finalReviewState = reviewState
+
+      if (reviewState === undefined) {
+        const file = state.files.find(f => f.id === fileId)
+        finalReviewState = file?.isReviewing ? {
+          is_reviewing: true,
+          original_content: file.originalContent
+        } : null
+      }
+
+      await updatePageContent(fileId, { content, review_state: finalReviewState }, bodyText)
 
       // Remove from sync queue if it was there
       removeFromSyncQueue(fileId)
@@ -292,11 +305,74 @@ export const editorStore = {
     return () => listeners.delete(listener)
   },
 
+  // NEW: Search & Replace Actions
+  replaceText: (fileId: string, targetText: string, replacementText: string) => {
+    const file = state.files.find((f) => f.id === fileId)
+    if (!file) return
+
+    let newContent = file.content
+
+    // Check if selection matches target
+    if (state.activeSelection && state.activeSelection.fileId === fileId && state.activeSelection.text === targetText) {
+      const before = file.content.substring(0, state.activeSelection.start)
+      const after = file.content.substring(state.activeSelection.end)
+      newContent = before + replacementText + after
+      editorStore.setSelection(null)
+    } else {
+      // Replace first occurrence
+      newContent = file.content.replace(targetText, replacementText)
+    }
+
+    if (newContent !== file.content) {
+      editorStore.updateFileContent(fileId, newContent)
+      toast.success('Text replaced')
+    } else {
+      toast.info('Text not found')
+    }
+  },
+
+  searchAndReplace: (query: string, replacement: string, scope: 'file' | 'workspace' = 'file') => {
+    if (scope === 'file') {
+      const activeTab = state.tabs.find(t => t.id === state.activeTabId)
+      if (!activeTab) return
+
+      const fileId = activeTab.fileId
+      const file = state.files.find(f => f.id === fileId)
+      if (!file) return
+
+      const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+      const newContent = file.content.replace(regex, replacement)
+
+      if (newContent !== file.content) {
+        editorStore.updateFileContent(fileId, newContent)
+        toast.success(`Replaced all occurrences in "${file.title}"`)
+      } else {
+        toast.info('No matches found')
+      }
+    } else {
+      let matchCount = 0
+      state.files.forEach(file => {
+        const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+        if (regex.test(file.content)) {
+          const newContent = file.content.replace(regex, replacement)
+          editorStore.updateFileContent(file.id, newContent)
+          matchCount++
+        }
+      })
+
+      if (matchCount > 0) {
+        toast.success(`Replaced text in ${matchCount} files`)
+      } else {
+        toast.info('No matches found in any open files')
+      }
+    }
+  },
+
   // Initialize from database
   initFromDatabase: async (
     folder: { id: string; name: string },
     pages: Array<{ id: string; title: string; folder_id: string }>,
-    userId: string
+    userId?: string
   ) => {
     // Convert pages to files
     const files: EditorFile[] = pages.map((page) => ({
@@ -362,8 +438,16 @@ export const editorStore = {
       layout: defaultLayout,
       activeSelection: null,
       workspaceId: folder.id,
-      userId,
+      userId: userId ?? null,
       folderName: folder.name,
+    }
+
+    // TRIGGER LOAD FOR INITIAL FILE
+    if (activeTabId) {
+      const initialTab = tabs.find(t => t.id === activeTabId)
+      if (initialTab) {
+        editorStore.loadFileContent(initialTab.fileId)
+      }
     }
 
     emitChange()
@@ -417,7 +501,13 @@ export const editorStore = {
       if (pageData) {
         // Content comes as an array from Supabase join, get first element
         const contentData = Array.isArray(pageData.content) ? pageData.content[0] : pageData.content
-        const content = contentData?.body_json?.content || ''
+        const bodyJson = contentData?.body_json || {}
+        const content = bodyJson.content || ''
+
+        // Check for review state
+        const reviewState = bodyJson.review_state
+        const isReviewing = reviewState?.is_reviewing || false
+        const originalContent = reviewState?.original_content || null
 
         // Save to localStorage for future offline access
         saveToLocalStorage(fileId, content)
@@ -425,7 +515,12 @@ export const editorStore = {
         state = {
           ...state,
           files: state.files.map((f) =>
-            f.id === fileId ? { ...f, content } : f
+            f.id === fileId ? {
+              ...f,
+              content,
+              isReviewing,
+              originalContent: originalContent || (isReviewing ? '' : null) // Ensure string or null
+            } : f
           ),
         }
         emitChange()
@@ -607,7 +702,7 @@ export const editorStore = {
     // Push current state to undo stack
     history.undoStack.push({ content: file.content, timestamp: Date.now() })
     if (history.undoStack.length > HISTORY_LIMIT) {
-      history.undoStack.shift()
+      history.redoStack.shift()
     }
 
     // Update using internal method (skip adding to history)
@@ -634,6 +729,8 @@ export const editorStore = {
     }
   },
 
+
+
   // NEW: AI Propose Logic
   proposeUpdate: (fileId: string, newContent: string) => {
     state = {
@@ -657,6 +754,9 @@ export const editorStore = {
       }),
     }
     emitChange()
+
+    // Persist proposal to DB immediately
+    debouncedSave(fileId, newContent)
   },
 
   acceptChange: (fileId: string) => {
@@ -673,10 +773,10 @@ export const editorStore = {
     }
     emitChange()
 
-    // Save accepted change to database
+    // Save accepted change to database and clear review state
     const file = state.files.find((f) => f.id === fileId)
     if (file) {
-      debouncedSave(file.id, file.content)
+      debouncedSave(file.id, file.content, null) // Explicitly clear review state
     }
   },
 
@@ -696,6 +796,12 @@ export const editorStore = {
       }),
     }
     emitChange()
+
+    // Save rejection (revert) to database and clear review state
+    const file = state.files.find((f) => f.id === fileId)
+    if (file) {
+      debouncedSave(file.id, file.content, null) // Explicitly clear review state
+    }
   },
 
   // BULK ACTIONS
@@ -717,11 +823,13 @@ export const editorStore = {
 
     // Save all accepted changes
     reviewingFiles.forEach((file) => {
-      debouncedSave(file.id, file.content)
+      debouncedSave(file.id, file.content, null) // Clear review state
     })
   },
 
   rejectAllReviews: () => {
+    const reviewingFiles = state.files.filter((f) => f.isReviewing)
+
     state = {
       ...state,
       files: state.files.map((f) => {
@@ -736,6 +844,12 @@ export const editorStore = {
       }),
     }
     emitChange()
+
+    // Save all rejected changes (revert)
+    reviewingFiles.forEach((file) => {
+      const revertedContent = file.originalContent || file.content
+      debouncedSave(file.id, revertedContent, null) // Clear review state
+    })
   },
 
   getReviewingFilesCount: () => {

@@ -2,11 +2,22 @@
 
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { createClient } from '@/lib/supabase/client'
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    async function getUser() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    getUser()
+  }, [])
 
   const navLinks = [
     { label: 'Features', href: '#features' },
@@ -45,18 +56,29 @@ export function Navbar() {
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center gap-4">
-            <Link
-              href="/sign-in"
-              className="text-sm text-zinc-400 hover:text-white transition-colors font-medium"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/sign-up"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-all hover:shadow-lg hover:shadow-blue-500/25"
-            >
-              Get Started Free
-            </Link>
+            {user ? (
+              <Link
+                href="/create"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-all hover:shadow-lg hover:shadow-blue-500/25"
+              >
+                Workspace
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/sign-in"
+                  className="text-sm text-zinc-400 hover:text-white transition-colors font-medium"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/sign-up"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-all hover:shadow-lg hover:shadow-blue-500/25"
+                >
+                  Get Started Free
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -90,20 +112,32 @@ export function Navbar() {
                 </a>
               ))}
               <div className="pt-4 border-t border-zinc-800 space-y-3">
-                <Link
-                  href="/sign-in"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-zinc-400 hover:text-white transition-colors font-medium"
-                >
-                  Log in
-                </Link>
-                <Link
-                  href="/sign-up"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block w-full text-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-all"
-                >
-                  Get Started Free
-                </Link>
+                {user ? (
+                  <Link
+                    href="/create"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block w-full text-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-all"
+                  >
+                    Workspace
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      href="/sign-in"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block text-zinc-400 hover:text-white transition-colors font-medium"
+                    >
+                      Log in
+                    </Link>
+                    <Link
+                      href="/sign-up"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block w-full text-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-all"
+                    >
+                      Get Started Free
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

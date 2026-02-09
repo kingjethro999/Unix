@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "A modern, AI-powered collaborative writing workspace with real-time editing, context-aware AI assistance, and seamless team collaboration.",
 };
 
+import NextTopLoader from 'nextjs-toploader';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,6 +30,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
       >
+        <NextTopLoader color="#2563eb" showSpinner={false} />
         <Providers>
           {children}
         </Providers>

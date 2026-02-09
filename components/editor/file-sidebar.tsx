@@ -28,9 +28,10 @@ interface FileItemProps {
   isActive: boolean
   onDragStart: (e: React.DragEvent, file: EditorFile) => void
   onExport: (file: EditorFile) => void
+  readOnly?: boolean
 }
 
-function FileItem({ file, isActive, onDragStart, onExport }: FileItemProps) {
+function FileItem({ file, isActive, onDragStart, onExport, readOnly }: FileItemProps) {
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(file.title)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -114,54 +115,56 @@ function FileItem({ file, isActive, onDragStart, onExport }: FileItemProps) {
         )}
       </button>
 
-      <div className="flex items-center gap-1 shrink-0">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={cn(
-                'p-1 rounded hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100',
-                isActive && 'opacity-100',
-              )}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreVertical size={14} className="text-zinc-500" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                setIsRenaming(true)
-              }}
-            >
-              <Edit2 size={14} className="mr-2" />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                onExport(file)
-              }}
-            >
-              <Download size={14} className="mr-2" />
-              Export
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-400 focus:text-red-400"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (confirm(`Delete "${file.title}"? This cannot be undone.`)) {
-                  editorStore.deleteFile(file.id)
-                }
-              }}
-            >
-              <Trash2 size={14} className="mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-1 shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  'p-1 rounded hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100',
+                  isActive && 'opacity-100',
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical size={14} className="text-zinc-500" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsRenaming(true)
+                }}
+              >
+                <Edit2 size={14} className="mr-2" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onExport(file)
+                }}
+              >
+                <Download size={14} className="mr-2" />
+                Export
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-red-400 focus:text-red-400"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (confirm(`Delete "${file.title}"? This cannot be undone.`)) {
+                    editorStore.deleteFile(file.id)
+                  }
+                }}
+              >
+                <Trash2 size={14} className="mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </motion.div>
   )
 }
@@ -169,7 +172,11 @@ function FileItem({ file, isActive, onDragStart, onExport }: FileItemProps) {
 import { HelpModal } from './help-modal' // Import HelpModal
 import { BookOpen } from 'lucide-react' // Import BookOpen icon
 
-export function FileSidebar() {
+interface FileSidebarProps {
+  readOnly?: boolean
+}
+
+export function FileSidebar({ readOnly }: FileSidebarProps) {
   const state = useEditorState()
   const [searchQuery, setSearchQuery] = useState('')
   const [isNewFileModalOpen, setIsNewFileModalOpen] = useState(false)
@@ -260,7 +267,7 @@ export function FileSidebar() {
             <h1
               onClick={() => setIsRenamingWorkspace(true)}
               className="text-lg font-bold tracking-tighter text-white font-mono cursor-pointer hover:bg-white/5 rounded px-1 -ml-1 transition-colors truncate flex-1"
-              title="Click to rename"
+              title={!readOnly ? "Click to rename" : undefined}
             >
               {state.folderName}
             </h1>
@@ -280,13 +287,15 @@ export function FileSidebar() {
             >
               <Download size={16} />
             </button>
-            <button
-              onClick={() => setIsNewFileModalOpen(true)}
-              title="New File"
-              className="p-1.5 rounded-md hover:bg-white/5 text-zinc-500 hover:text-zinc-300 transition-colors"
-            >
-              <Plus size={16} />
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => setIsNewFileModalOpen(true)}
+                title="New File"
+                className="p-1.5 rounded-md hover:bg-white/5 text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <Plus size={16} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -324,6 +333,7 @@ export function FileSidebar() {
                 isActive={file.id === activeFileId}
                 onDragStart={handleFileDragStart}
                 onExport={handleExport}
+                readOnly={readOnly}
               />
             </motion.div>
           ))}

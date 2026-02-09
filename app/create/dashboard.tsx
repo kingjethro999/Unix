@@ -105,19 +105,19 @@ export function Dashboard({ initialFolders, userId }: DashboardProps) {
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-zinc-950 text-zinc-200">
             {/* Header / Top Section */}
-            <div className="bg-muted/30 py-8 border-b">
+            <div className="bg-zinc-900 border-b border-zinc-800 py-8">
                 <div className="container max-w-5xl mx-auto px-4">
-                    <h2 className="text-lg font-medium mb-4 text-muted-foreground">Start a new document</h2>
+                    <h2 className="text-lg font-medium mb-4 text-zinc-400">Start a new document</h2>
 
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
                             <button className="relative group">
-                                <div className="w-32 h-40 bg-white border hover:border-primary transition-colors rounded-lg flex items-center justify-center shadow-sm hover:shadow-md cursor-pointer">
-                                    <Plus className="h-12 w-12 text-blue-600" />
+                                <div className="w-32 h-40 bg-zinc-900 border border-zinc-800 hover:border-blue-500 transition-colors rounded-lg flex items-center justify-center shadow-sm hover:shadow-md hover:shadow-blue-500/10 cursor-pointer">
+                                    <Plus className="h-12 w-12 text-blue-500" />
                                 </div>
-                                <span className="mt-2 block text-sm font-medium text-left">Blank</span>
+                                <span className="mt-2 block text-sm font-medium text-left text-zinc-300 group-hover:text-white transition-colors">Blank</span>
                             </button>
                         </DialogTrigger>
                         <DialogContent>
@@ -152,27 +152,27 @@ export function Dashboard({ initialFolders, userId }: DashboardProps) {
             {/* Recent Documents Section */}
             <div className="container max-w-5xl mx-auto px-4 py-8">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-medium">Recent documents</h2>
+                    <h2 className="text-lg font-medium text-zinc-200">Recent documents</h2>
                     <div className="flex items-center gap-4">
                         <div className="w-48">
                             <Select value={filter} onValueChange={setFilter}>
-                                <SelectTrigger>
+                                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-300">
                                     <SelectValue placeholder="Filter" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="owned-by-anyone">Owned by anyone</SelectItem>
-                                    <SelectItem value="owned-by-me">Owned by me</SelectItem>
-                                    <SelectItem value="not-owned-by-me">Not owned by me</SelectItem>
+                                <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-300">
+                                    <SelectItem value="owned-by-anyone" className="focus:bg-zinc-800 focus:text-white">Owned by anyone</SelectItem>
+                                    <SelectItem value="owned-by-me" className="focus:bg-zinc-800 focus:text-white">Owned by me</SelectItem>
+                                    <SelectItem value="not-owned-by-me" className="focus:bg-zinc-800 focus:text-white">Not owned by me</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        <div className="flex items-center border rounded-md bg-white">
+                        <div className="flex items-center border border-zinc-800 rounded-md bg-zinc-900 overflow-hidden">
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setViewMode('list')}
-                                className={cn("h-9 w-9 rounded-none border-r", viewMode === 'list' && "bg-muted")}
+                                className={cn("h-9 w-9 rounded-none border-r border-zinc-800 hover:bg-zinc-800 hover:text-white", viewMode === 'list' ? "bg-zinc-800 text-white" : "text-zinc-400")}
                                 title="List view"
                             >
                                 <ListIcon className="h-4 w-4" />
@@ -181,7 +181,7 @@ export function Dashboard({ initialFolders, userId }: DashboardProps) {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setViewMode('grid')}
-                                className={cn("h-9 w-9 rounded-none", viewMode === 'grid' && "bg-muted")}
+                                className={cn("h-9 w-9 rounded-none hover:bg-zinc-800 hover:text-white", viewMode === 'grid' ? "bg-zinc-800 text-white" : "text-zinc-400")}
                                 title="Grid view"
                             >
                                 <LayoutGrid className="h-4 w-4" />
@@ -193,11 +193,11 @@ export function Dashboard({ initialFolders, userId }: DashboardProps) {
                             size="icon"
                             onClick={toggleSort}
                             title="Sort by name"
-                            className="bg-white border hover:bg-muted"
+                            className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-white text-zinc-400"
                         >
-                            {sortOrder === 'name-asc' ? <ArrowDownAZ className="h-4 w-4" /> :
-                                sortOrder === 'name-desc' ? <ArrowUpZA className="h-4 w-4" /> :
-                                    <ArrowDownAZ className="h-4 w-4 text-muted-foreground" />}
+                            {sortOrder === 'name-asc' ? <ArrowDownAZ className="h-4 w-4 text-blue-500" /> :
+                                sortOrder === 'name-desc' ? <ArrowUpZA className="h-4 w-4 text-blue-500" /> :
+                                    <ArrowDownAZ className="h-4 w-4" />}
                         </Button>
                     </div>
                 </div>
@@ -211,20 +211,20 @@ export function Dashboard({ initialFolders, userId }: DashboardProps) {
                                     href={`/workspace/${folder.id}`}
                                     className="group block"
                                 >
-                                    <div className="bg-white border rounded-lg h-40 relative flex flex-col justify-between hover:border-primary transition-colors cursor-pointer shadow-sm hover:shadow-md overflow-hidden">
-                                        <div className="flex-1 p-4 bg-gray-50 flex items-center justify-center">
-                                            <FileText className="h-8 w-8 text-gray-300" />
+                                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg h-40 relative flex flex-col justify-between hover:border-blue-500/50 transition-colors cursor-pointer shadow-sm hover:shadow-lg hover:shadow-blue-500/5 overflow-hidden">
+                                        <div className="flex-1 p-4 bg-zinc-950/30 flex items-center justify-center">
+                                            <FileText className="h-8 w-8 text-zinc-700 group-hover:text-blue-500/50 transition-colors" />
                                         </div>
 
-                                        <div className="p-3 bg-white border-t flex items-center justify-between">
-                                            <div className="truncate">
-                                                <h3 className="font-medium text-sm truncate" title={folder.name}>{folder.name}</h3>
-                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                        <div className="p-3 bg-zinc-900 border-t border-zinc-800 flex items-center justify-between">
+                                            <div className="truncate w-full">
+                                                <h3 className="font-medium text-sm truncate text-zinc-300 group-hover:text-white transition-colors" title={folder.name}>{folder.name}</h3>
+                                                <div className="flex items-center gap-1 text-xs text-zinc-500 mt-1">
                                                     <FileText className="h-3 w-3 sm:hidden" />
                                                     <span>Opened {new Date(folder.created_at).toLocaleDateString()}</span>
                                                 </div>
                                             </div>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-white hover:bg-zinc-800">
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -233,20 +233,20 @@ export function Dashboard({ initialFolders, userId }: DashboardProps) {
                             ))}
                         </div>
                     ) : (
-                        <div className="flex flex-col border rounded-md bg-white overflow-hidden">
+                        <div className="flex flex-col border border-zinc-800 rounded-md bg-zinc-900 overflow-hidden">
                             {filteredAndSortedFolders.map((folder) => (
                                 <Link
                                     key={folder.id}
                                     href={`/workspace/${folder.id}`}
-                                    className="group flex items-center justify-between p-3 border-b last:border-0 hover:bg-muted/50 transition-colors"
+                                    className="group flex items-center justify-between p-3 border-b border-zinc-800 last:border-0 hover:bg-zinc-800/50 transition-colors"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <FileText className="h-5 w-5 text-muted-foreground" />
-                                        <span className="font-medium text-sm">{folder.name}</span>
+                                        <FileText className="h-5 w-5 text-zinc-500 group-hover:text-blue-500 transition-colors" />
+                                        <span className="font-medium text-sm text-zinc-300 group-hover:text-white">{folder.name}</span>
                                     </div>
-                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                    <div className="flex items-center gap-4 text-sm text-zinc-500">
                                         <span>{new Date(folder.created_at).toLocaleDateString()}</span>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-white hover:bg-zinc-800">
                                             <MoreVertical className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -255,7 +255,7 @@ export function Dashboard({ initialFolders, userId }: DashboardProps) {
                         </div>
                     )
                 ) : (
-                    <div className="text-center py-12 text-muted-foreground">
+                    <div className="text-center py-12 text-zinc-600">
                         <p>No documents found.</p>
                     </div>
                 )}

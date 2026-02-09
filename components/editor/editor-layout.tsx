@@ -10,6 +10,7 @@ import {
   Undo2,
   Redo2,
   Command,
+  Share2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEditorState, editorStore, useActiveFile } from './editor-store'
@@ -18,6 +19,7 @@ import { EditorTabs } from './editor-tabs'
 import { EditorWorkspace } from './editor-workspace'
 import { AIChatSidebar } from './ai-chat-sidebar'
 import { ExportDialog } from './export-dialog'
+import { ShareModal } from './share-modal'
 import { motion, AnimatePresence } from 'motion/react'
 
 interface ResizeHandleProps {
@@ -95,6 +97,7 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
   const { layout } = state
   const activeFile = useActiveFile()
   const [isExportOpen, setIsExportOpen] = useState(false)
+  const [isShareOpen, setIsShareOpen] = useState(false)
 
   // Force re-render on history changes (subscribing to store updates)
   const [, setTick] = useState(0)
@@ -181,6 +184,11 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-950 text-white overflow-hidden">
       <ExportDialog open={isExportOpen} onOpenChange={setIsExportOpen} />
+      <ShareModal
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        workspaceId={folder.id}
+      />
 
       {/* Top bar */}
       <div className="h-12 bg-zinc-950 border-b border-zinc-800/50 flex items-center justify-between px-4 shrink-0">
@@ -238,6 +246,15 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
           >
             <Download size={14} />
             <span className="hidden sm:inline">Export</span>
+          </button>
+
+          <button
+            onClick={() => setIsShareOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 rounded-lg text-xs transition-colors"
+            title="Share project"
+          >
+            <Share2 size={14} />
+            <span className="hidden sm:inline">Share</span>
           </button>
         </div>
 
@@ -317,31 +334,31 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
           <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
             ⌘B
           </kbd>
-          <span>Files</span>
+          <span className="hidden sm:inline">Files</span>
         </span>
         <span className="flex items-center gap-1">
           <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
             ⌘Z
           </kbd>
-          <span>Undo</span>
+          <span className="hidden sm:inline">Undo</span>
         </span>
         <span className="flex items-center gap-1">
           <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
             ⌘J
           </kbd>
-          <span>AI Chat</span>
+          <span className="hidden sm:inline">AI Chat</span>
         </span>
         <span className="flex items-center gap-1">
           <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
             ⌘W
           </kbd>
-          <span>Close Tab</span>
+          <span className="hidden sm:inline">Close Tab</span>
         </span>
         <span className="flex items-center gap-1">
           <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
             ⌘1-9
           </kbd>
-          <span>Switch Tab</span>
+          <span className="hidden sm:inline">Switch Tab</span>
         </span>
       </div>
     </div>

@@ -242,6 +242,51 @@ SMART RENAMING (CRITICAL):
                         },
                         required: ['fileId']
                     }
+                },
+                {
+                    name: 'replace_text',
+                    description: 'Replace specific text in a file. Use this for small edits or corrections.',
+                    parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                            fileId: {
+                                type: 'STRING',
+                                description: 'The ID of the file to edit'
+                            },
+                            targetText: {
+                                type: 'STRING',
+                                description: 'The exact text to find and replace'
+                            },
+                            replacementText: {
+                                type: 'STRING',
+                                description: 'The new text to insert'
+                            }
+                        },
+                        required: ['fileId', 'targetText', 'replacementText']
+                    }
+                },
+                {
+                    name: 'search_and_replace',
+                    description: 'Search and replace text across a file or the entire workspace (grep-like).',
+                    parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                            query: {
+                                type: 'STRING',
+                                description: 'The text to search for'
+                            },
+                            replacement: {
+                                type: 'STRING',
+                                description: 'The text to replace with'
+                            },
+                            scope: {
+                                type: 'STRING',
+                                enum: ['file', 'workspace'],
+                                description: 'Scope of the replacement (default: file)'
+                            }
+                        },
+                        required: ['query', 'replacement']
+                    }
                 }
             ]
         }]
@@ -307,29 +352,82 @@ SMART RENAMING (CRITICAL):
 
         const result = await response.json()
         const candidate = result.candidates?.[0]
+
+        // Handle Safety Blocks
+        if (candidate?.finishReason === 'SAFETY') {
+            return NextResponse.json({
+                type: 'text',
+                text: "I cannot generate a response for that prompt due to safety guidelines."
+            })
+        }
+
         const parts = candidate?.content?.parts || []
 
         // SAVE ASSISTANT RESPONSE
         const textResponse = parts.map((p: any) => p.text).join('')
 
-        // If there are function calls, we count that as "content" too for history purposes, 
-        // or we might want to log the text part if it exists. 
-        // For now, let's strictly log the text response. 
-        // If the AI only calls a tool, textResponse might be empty.
-        // We can synthesize a description if empty.
-
         let contentToSave = textResponse
         const functionCalls = parts.filter((p: any) => p.functionCall).map((p: any) => p.functionCall)
 
-        if (functionCalls.length > 0 && !contentToSave) {
-            contentToSave = `[Action: ${functionCalls.map((fc: any) => fc.name).join(', ')}]`
+        // Prepare action metadata for attachments column
+        let actionAttachment: any = null
+
+        if (functionCalls.length > 0) {
+            const call = functionCalls[0]
+            const args = call.args || {}
+
+            // 1. Generate descriptive content if empty
+            if (!contentToSave) {
+                if (call.name === 'update_file') {
+                    // Try to get file title? We don't have it easily here unless we query DB or pass it. 
+                    // args.actionDescription is best bet.
+                    contentToSave = args.actionDescription || `Updated file "${args.fileId}".`
+                } else if (call.name === 'create_file') {
+                    contentToSave = args.actionDescription || `Created file "${args.title}".`
+                } else if (call.name === 'rename_file') {
+                    contentToSave = `Renamed file to "${args.newTitle}".`
+                } else if (call.name === 'delete_file') {
+                    contentToSave = `Deleted file "${args.fileId}".`
+                } else if (call.name === 'replace_text') {
+                    contentToSave = `Replaced text in file "${args.fileId}".`
+                } else if (call.name === 'search_and_replace') {
+                    contentToSave = `Replaced "${args.query}" with "${args.replacement}" ${args.scope === 'workspace' ? 'in workspace' : 'in file'}.`
+                } else {
+                    contentToSave = `Performed action: ${call.name}`
+                }
+            }
+
+            // 2. Prepare action metadata
+            // We use a special 'action_metadata' type or just put it in the array
+            // The frontend expects { id, title }, so we might need to be careful or use a valid JSON structure 
+            // that won't break frontend if it expects array of objects.
+            // Let's use a special object that we filter out on frontend.
+
+            let detail = ''
+            if (call.name === 'update_file') detail = args.actionDescription || 'Update'
+            else if (call.name === 'create_file') detail = args.title
+            else if (call.name === 'rename_file') detail = args.newTitle
+            else if (call.name === 'replace_text') detail = 'Text Replacement'
+            else if (call.name === 'search_and_replace') detail = 'Global Replace'
+
+            actionAttachment = {
+                type: 'action_metadata', // Marker
+                action: {
+                    type: call.name === 'update_file' || call.name === 'replace_text' || call.name === 'search_and_replace' ? 'review' : 'write',
+                    detail: detail,
+                    fileId: args.fileId // Useful for review buttons
+                }
+            }
         }
 
         if (contentToSave) {
+            const attachmentsToSave = actionAttachment ? [actionAttachment] : []
+
             const { error: insertError } = await supabase.from('chat_messages').insert({
                 user_id: user.id,
                 role: 'assistant',
-                content: contentToSave
+                content: contentToSave,
+                attachments: JSON.stringify(attachmentsToSave)
             })
 
             if (insertError) {
@@ -340,6 +438,7 @@ SMART RENAMING (CRITICAL):
         if (functionCalls.length > 0) {
             return NextResponse.json({
                 type: 'tool_call',
+                text: textResponse,
                 toolCalls: functionCalls
             })
         }

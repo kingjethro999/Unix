@@ -88,13 +88,37 @@ export function AIChatSidebar() {
         .order('created_at', { ascending: true })
 
       if (data) {
-        setMessages(data.map((msg: any) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-          attachments: typeof msg.attachments === 'string' ? JSON.parse(msg.attachments) : msg.attachments
-        })))
+        setMessages(data.map((msg: any) => {
+          let attachments: any[] = []
+          let action: any = undefined
+
+          try {
+            const rawAttachments = typeof msg.attachments === 'string' ? JSON.parse(msg.attachments) : msg.attachments
+            if (Array.isArray(rawAttachments)) {
+              // Separate action metadata from file attachments
+              const actionMeta = rawAttachments.find((a: any) => a.type === 'action_metadata')
+              if (actionMeta) {
+                action = actionMeta.action
+              }
+
+              // Filter out metadata for display attachments
+              attachments = rawAttachments.filter((a: any) => a.type !== 'action_metadata')
+            } else {
+              attachments = rawAttachments
+            }
+          } catch (e) {
+            attachments = []
+          }
+
+          return {
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.created_at),
+            attachments,
+            action
+          }
+        }))
       }
     }
     loadHistory()
@@ -151,6 +175,9 @@ export function AIChatSidebar() {
     setAttachments([])
     setIsTyping(true)
 
+    // Clear selection immediately to allow user to continue
+    editorStore.setSelection(null)
+
     try {
       // Prepare context files from explicit attachments
       let contextFiles = userMessage.attachments
@@ -186,6 +213,7 @@ export function AIChatSidebar() {
 
       const apiResponse = await fetch('/api/ai/chat', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -210,6 +238,7 @@ export function AIChatSidebar() {
       const response = await apiResponse.json()
 
       if (response.type === 'text') {
+        if (!response.text) return
         const aiMessage: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
@@ -219,6 +248,8 @@ export function AIChatSidebar() {
         setMessages((prev) => [...prev, aiMessage])
       } else if (response.type === 'tool_call') {
         // Handle tool calls
+        const aiText = response.text || ''
+
         for (const call of response.toolCalls) {
           if (call.name === 'read_file') {
             const { fileId } = call.args
@@ -227,7 +258,7 @@ export function AIChatSidebar() {
               setMessages(prev => [...prev, {
                 id: crypto.randomUUID(),
                 role: 'assistant',
-                content: `I'm reading "${fileToRead.title}" to get more context...`,
+                content: aiText + (aiText ? '\n\n' : '') + `I'm reading "${fileToRead.title}" to get more context...`,
                 timestamp: new Date(),
                 action: { type: 'read', detail: fileToRead.title }
               }])
@@ -252,7 +283,7 @@ export function AIChatSidebar() {
             const aiMessage: ChatMessage = {
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: messageContent,
+              content: aiText + (aiText ? '\n\n' : '') + messageContent,
               timestamp: new Date(),
               action: { type: 'review', detail: fileTitle, fileId: fileId }
             }
@@ -273,7 +304,7 @@ export function AIChatSidebar() {
             const aiMessage: ChatMessage = {
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: messageContent,
+              content: aiText + (aiText ? '\n\n' : '') + messageContent,
               timestamp: new Date(),
               action: { type: 'write', detail: title }
             }
@@ -285,7 +316,7 @@ export function AIChatSidebar() {
             setMessages(prev => [...prev, {
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: `Renamed file to "${newTitle}".`,
+              content: aiText + (aiText ? '\n\n' : '') + `Renamed file to "${newTitle}".`,
               timestamp: new Date(),
               action: { type: 'write', detail: newTitle }
             }])
@@ -299,9 +330,31 @@ export function AIChatSidebar() {
             setMessages(prev => [...prev, {
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: `Deleted "${title}".`,
+              content: aiText + (aiText ? '\n\n' : '') + `Deleted "${title}".`,
               timestamp: new Date(),
               action: { type: 'write', detail: title }
+            }])
+          } else if (call.name === 'replace_text') {
+            const { fileId, targetText, replacementText } = call.args
+            editorStore.replaceText(fileId, targetText, replacementText)
+
+            setMessages(prev => [...prev, {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: aiText + (aiText ? '\n\n' : '') + `Replaced text in file.`,
+              timestamp: new Date(),
+              action: { type: 'write', detail: 'Text Replacement' }
+            }])
+          } else if (call.name === 'search_and_replace') {
+            const { query, replacement, scope } = call.args
+            editorStore.searchAndReplace(query, replacement, scope || 'file')
+
+            setMessages(prev => [...prev, {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: aiText + (aiText ? '\n\n' : '') + `Replaced all occurrences of "${query}" with "${replacement}".`,
+              timestamp: new Date(),
+              action: { type: 'write', detail: 'Global Replace' }
             }])
           }
         }
