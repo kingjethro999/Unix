@@ -8,7 +8,7 @@
   Combined Source A resets with Source B's font logic precedence 
 */
 body {
-  @apply m-0;
+  @apply m-0 overflow-x-hidden;
   font-family:
     var(--font-geist-sans),
     /* Prioritize Geist if available (Source B) */

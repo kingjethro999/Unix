@@ -51,7 +51,7 @@ export function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0)
 
   return (
-    <section id="faq" className="relative py-24 bg-zinc-950">
+    <section id="faq" className="relative py-24 bg-zinc-950 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0">
         <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-purple-600/5 rounded-full blur-[128px]" />
