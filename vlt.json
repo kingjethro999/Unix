@@ -1,0 +1,8 @@
+{
+  "config": {
+    "default-registry-alias": "npm",
+    "registries": {
+      "npm": "https://registry.npmjs.org/"
+    }
+  }
+}
