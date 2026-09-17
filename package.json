@@ -1,6 +1,11 @@
 {
   "name": "unix",
-  "version": "1.0.5",
+  "version": "1.0.6",
+  "description": "A focused writing workspace for long-form work.",
+  "author": {
+    "name": "King Jethro Jerry",
+    "email": "jethrojerrybj@gmail.com"
+  },
   "private": true,
   "packageManager": "vlt@1.0.10",
   "scripts": {
@@ -10,10 +15,10 @@
     "build": "next build",
     "desktop:dev": "concurrently --kill-others-on-fail -n web,live,desktop \"next dev\" \"node --env-file=.env scripts/realtime-server.mjs\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "desktop:prepare": "node scripts/prepare-desktop.mjs",
-    "desktop:build": "next build && node scripts/prepare-desktop.mjs && electron-builder --linux AppImage deb --publish never",
-    "desktop:build:linux": "next build && node scripts/prepare-desktop.mjs && electron-builder --linux AppImage deb --publish never",
-    "desktop:build:windows": "next build && node scripts/prepare-desktop.mjs && electron-builder --win nsis --publish never",
-    "desktop:build:mac": "next build && node scripts/prepare-desktop.mjs && electron-builder --mac dmg zip --publish never",
+    "desktop:build": "node scripts/build-desktop.mjs --linux",
+    "desktop:build:linux": "node scripts/build-desktop.mjs --linux",
+    "desktop:build:windows": "node scripts/build-desktop.mjs --win",
+    "desktop:build:mac": "node scripts/build-desktop.mjs --mac",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
@@ -26,6 +31,7 @@
   "build": {
     "appId": "com.unix.writer",
     "productName": "Unix",
+    "desktopName": "unix",
     "directories": {
       "output": "release"
     },
@@ -53,6 +59,10 @@
         "deb"
       ],
       "category": "Office",
+      "maintainer": "King Jethro Jerry <jethrojerrybj@gmail.com>",
+      "synopsis": "A focused writing workspace for long-form work.",
+      "desktopName": "unix",
+      "syncDesktopName": true,
       "icon": "desktop/icons/icon.png",
       "artifactName": "Unix-${arch}.${ext}"
     },
