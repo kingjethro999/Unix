@@ -45,3 +45,5 @@ next-env.d.ts
 
 # local persistent uploads
 /data/
+desktop/app/main.cjs
+desktop/app/preload.cjs

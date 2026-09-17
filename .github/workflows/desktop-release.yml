@@ -58,4 +58,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --generate-notes --title "Unix $TAG"
+        run: |
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --generate-notes --title "Unix $TAG"
+          for asset in release/*; do
+            for attempt in 1 2 3 4 5; do
+              gh release upload "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --clobber && break
+              if [ "$attempt" = 5 ]; then exit 1; fi
+              sleep $((attempt * 5))
+            done
+          done
