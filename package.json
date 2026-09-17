@@ -1,6 +1,6 @@
 {
   "name": "unix",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "packageManager": "vlt@1.0.10",
   "scripts": {
