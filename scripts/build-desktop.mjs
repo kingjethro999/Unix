@@ -24,7 +24,11 @@ const executable = (name) =>
   );
 
 function run(command, args) {
-  const result = spawnSync(command, args, { stdio: "inherit" });
+  const result = spawnSync(command, args, {
+    stdio: "inherit",
+    // Windows cannot execute a .cmd shim directly through spawnSync.
+    shell: process.platform === "win32",
+  });
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
