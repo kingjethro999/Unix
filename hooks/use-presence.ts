@@ -1,69 +1,74 @@
-'use client'
+"use client";
 
-import { createClient } from '@/lib/supabase/client'
-import { useEffect, useState } from 'react'
-import { RealtimePresenceState } from '@supabase/supabase-js'
+import { useEffect, useRef, useState } from "react";
 
-interface UsePresenceProps {
-    room: string
-    user: {
-        id: string
-        name?: string
-        avatar_url?: string
-    }
-}
-
-interface PresenceState {
-    [key: string]: any[]
-}
-
-export function usePresence({ room, user }: UsePresenceProps) {
-    const supabase = createClient()
-    const [presenceState, setPresenceState] = useState<PresenceState>({})
-
-    useEffect(() => {
-        const channel = supabase.channel(room)
-
-        channel
-            .on('presence', { event: 'sync' }, () => {
-                const newState = channel.presenceState()
-                setPresenceState(newState)
-            })
-            .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-                // Handle join if needed specifically
-            })
-            .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-                // Handle leave if needed specifically
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    await channel.track({
-                        user_id: user.id,
-                        online_at: new Date().toISOString(),
-                        ...user,
-                    })
-                }
-            })
-
-        return () => {
-            channel.unsubscribe()
-        }
-    }, [room, user.id])
-
-    // Convert presence state object to an array of users for easier display
-    const activeUsers = Object.values(presenceState)
-        .flat()
-        .map((p: any) => ({
-            id: p.user_id,
-            name: p.name,
-            avatar_url: p.avatar_url,
-            online_at: p.online_at
-        }))
-        // Filter out duplicates if a user has multiple tabs open
-        .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
-
-    return {
-        activeUsers,
-        presenceState
-    }
+export type Collaborator = {
+  userId: string;
+  name: string;
+  documentId: string | null;
+  from: number | null;
+  to: number | null;
+  color: string;
+};
+export function usePresence(
+  workspaceId: string | null,
+  documentId: string | undefined,
+  selection?: { from: number; to: number },
+) {
+  const [people, setPeople] = useState<Collaborator[]>([]);
+  const socket = useRef<WebSocket | null>(null);
+  const latest = useRef({
+    documentId,
+    from: selection?.from ?? null,
+    to: selection?.to ?? null,
+  });
+  latest.current = {
+    documentId,
+    from: selection?.from ?? null,
+    to: selection?.to ?? null,
+  };
+  const sendCursor = (ws: WebSocket) => {
+    if (ws.readyState === WebSocket.OPEN)
+      ws.send(JSON.stringify({ type: "cursor", ...latest.current }));
+  };
+  useEffect(() => {
+    if (!workspaceId) return;
+    let stopped = false;
+    let retry: number | undefined;
+    const connect = async () => {
+      try {
+        const response = await fetch("/api/presence/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspaceId }),
+        });
+        if (!response.ok || stopped) return;
+        const data = await response.json();
+        const ws = new WebSocket(
+          `${data.url}?token=${encodeURIComponent(data.token)}`,
+        );
+        socket.current = ws;
+        ws.onopen = () => sendCursor(ws);
+        ws.onmessage = (event) => {
+          const message = JSON.parse(event.data);
+          if (message.type === "presence") setPeople(message.people);
+        };
+        ws.onclose = () => {
+          if (!stopped) retry = window.setTimeout(connect, 1500);
+        };
+      } catch {
+        if (!stopped) retry = window.setTimeout(connect, 2000);
+      }
+    };
+    void connect();
+    return () => {
+      stopped = true;
+      if (retry) clearTimeout(retry);
+      socket.current?.close();
+    };
+  }, [workspaceId]);
+  useEffect(() => {
+    if (socket.current) sendCursor(socket.current);
+  }, [documentId, selection?.from, selection?.to]);
+  return people;
 }

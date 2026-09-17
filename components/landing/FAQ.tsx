@@ -1,54 +1,54 @@
-'use client'
+"use client";
 
-import { motion } from 'motion/react'
-import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { motion } from "motion/react";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 const faqs = [
   {
-    question: 'How does the context-aware AI work?',
+    question: "How does the context-aware AI work?",
     answer:
       "Unix AI automatically reads the content of your active tab. When you ask a question or request an edit, it uses that context to provide relevant responses. You can also @mention other pages to include them in the AI's context, perfect for maintaining consistency across your entire project.",
   },
   {
-    question: 'What is the @mention system?',
+    question: "What is the @mention system?",
     answer:
-      'You can drag any page from your sidebar into the AI chat, or type @ to see a list of your pages. When you mention a page, its content is included in the AI\'s context. For example, you can ask "Based on @CharacterBible, what color are Sarah\'s eyes?" and get accurate answers.',
+      "Drag a page from the document sidebar into the assistant panel to include it as explicit context. Unix sends only the attached pages and the active page for that request.",
   },
   {
-    question: 'How does the Accept/Reject workflow work?',
+    question: "How does the Accept/Reject workflow work?",
     answer:
       "When the AI suggests edits, you'll see them as a visual diff: red strikethrough for deletions, green highlights for additions. A floating toolbar appears with Accept (checkmark) and Decline (X) buttons. Only when you click Accept does the change become permanent.",
   },
   {
-    question: 'Can I collaborate with others in real-time?',
+    question: "Can I collaborate with others in real-time?",
     answer:
-      'Yes! You can share folders with three privacy levels: Private (only you), Link Access (anyone with the link can view or edit), or Request Access (visitors must request permission). Collaborators see changes in real-time and can use the AI features too.',
+      "Unix currently supports a read-only sharing link. Live simultaneous editing is planned after revision and access safeguards are complete.",
   },
   {
-    question: 'Is my writing data secure?',
+    question: "Is my writing data secure?",
     answer:
-      'Absolutely. Your data is stored securely with row-level security policies. Only you (and people you explicitly share with) can access your folders. We never train AI models on your content. Your creative work remains yours.',
+      "Workspace membership is checked on server endpoints, credentials stay on the server, and shared links are explicit. Review your selected service settings for its data-handling terms.",
   },
   {
-    question: 'What file formats can I export to?',
+    question: "What file formats can I export to?",
     answer:
-      'Unix supports export to clean Markdown (for web publishing) and formatted PDF/Docx (for manuscript submission). The export engine preserves your formatting including headings, bold, italics, and more.',
+      "Unix exports PDF and DOCX. Rich formats preserve the structures they support; plain-text conversions have natural formatting limits.",
   },
   {
-    question: 'Is there a free plan?',
+    question: "Is there a free plan?",
     answer:
-      'Yes! You can start writing for free with generous limits. Our free tier includes unlimited pages, basic AI features, and collaboration with up to 2 people. Upgrade to Pro for unlimited AI requests, advanced features, and priority support.',
+      "Local development has no payment requirement. Commercial plans will be introduced only after usage limits and manuscript-access protections are ready.",
   },
   {
-    question: 'Which AI model powers Unix?',
+    question: "Which assistant mode should I use?",
     answer:
-      "Unix is powered by Google's Gemini 1.5 Pro/Flash models. These models excel at understanding long-form content and maintaining context across large documents—perfect for novels, research papers, and complex writing projects.",
+      "Use Fast for routine proofreading and short rewrites, Reasoning for difficult edits, Extensive research for source-heavy questions, and Logic for tasks with several constraints.",
   },
-]
+];
 
 export function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0)
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
     <section id="faq" className="relative py-24 bg-zinc-950 overflow-hidden">
@@ -96,13 +96,13 @@ export function FAQ() {
                   {faq.question}
                 </span>
                 <ChevronDown
-                  className={`w-5 h-5 text-zinc-400 flex-shrink-0 transition-transform ${openIndex === index ? 'rotate-180' : ''}`}
+                  className={`w-5 h-5 text-zinc-400 flex-shrink-0 transition-transform ${openIndex === index ? "rotate-180" : ""}`}
                 />
               </button>
               <motion.div
                 initial={false}
                 animate={{
-                  height: openIndex === index ? 'auto' : 0,
+                  height: openIndex === index ? "auto" : 0,
                   opacity: openIndex === index ? 1 : 0,
                 }}
                 transition={{ duration: 0.3 }}
@@ -117,5 +117,5 @@ export function FAQ() {
         </div>
       </div>
     </section>
-  )
+  );
 }

@@ -1,10 +1,25 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { motion } from 'motion/react'
-import { ArrowRight, Sparkles, FileText, MessageSquare } from 'lucide-react'
+import Link from "next/link";
+import { useState } from "react";
+import { motion } from "motion/react";
+import {
+  ArrowRight,
+  Download,
+  Sparkles,
+  FileText,
+  MessageSquare,
+} from "lucide-react";
 
 export function Hero() {
+  const [activePage, setActivePage] = useState("Chapter One");
+  const [showSuggestion, setShowSuggestion] = useState(false);
+  const pages = [
+    "Chapter One",
+    "Chapter Four",
+    "Character Bible",
+    "Research Notes",
+  ];
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-zinc-950 pt-16">
       {/* Background Effects */}
@@ -20,7 +35,7 @@ export function Hero() {
           style={{
             backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
                                          linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-            backgroundSize: '64px 64px',
+            backgroundSize: "64px 64px",
           }}
         />
 
@@ -44,7 +59,7 @@ export function Hero() {
           >
             <Sparkles className="w-4 h-4 text-blue-400" />
             <span className="text-sm text-zinc-300 font-medium">
-              Powered by Gemini AI
+              Built for focused writing
             </span>
           </motion.div>
 
@@ -83,9 +98,9 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed"
           >
-            A high-performance writing environment with context-aware AI. Drag
-            pages into chat, get intelligent suggestions, and collaborate in
-            real-time.
+            A structured writing environment with reviewable assistance.
+            Preserve formatting, apply focused suggestions, and keep reusable
+            writing rules beside your manuscript.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -108,6 +123,13 @@ export function Hero() {
             >
               See How It Works
             </a>
+            <Link
+              href="/download"
+              className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-zinc-300 transition-colors hover:text-white"
+            >
+              <Download size={16} aria-hidden="true" />
+              Download desktop app
+            </Link>
           </motion.div>
 
           {/* Feature Pills */}
@@ -118,9 +140,9 @@ export function Hero() {
             className="flex flex-wrap items-center justify-center gap-3"
           >
             {[
-              { icon: FileText, label: 'Multi-tab Editor' },
-              { icon: MessageSquare, label: '@Mention Context' },
-              { icon: Sparkles, label: 'Accept/Reject Diffs' },
+              { icon: FileText, label: "Multi-tab Editor" },
+              { icon: MessageSquare, label: "@Mention Context" },
+              { icon: Sparkles, label: "Accept/Reject Diffs" },
             ].map((feature, index) => (
               <div
                 key={feature.label}
@@ -163,19 +185,16 @@ export function Hero() {
                   Pages
                 </div>
                 <div className="space-y-2">
-                  {[
-                    'Chapter One',
-                    'Character Bible',
-                    'Plot Outline',
-                    'Research Notes',
-                  ].map((page, i) => (
-                    <div
+                  {pages.map((page) => (
+                    <button
+                      type="button"
                       key={page}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${i === 0 ? 'bg-blue-600/20 text-blue-400' : 'text-zinc-400 hover:bg-zinc-800'}`}
+                      onClick={() => setActivePage(page)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm ${activePage === page ? "bg-blue-600/20 text-blue-400" : "text-zinc-400 hover:bg-zinc-800"}`}
                     >
                       <FileText className="w-4 h-4" />
                       {page}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -184,7 +203,7 @@ export function Hero() {
               <div className="flex-1 bg-zinc-950 p-8 overflow-hidden">
                 <div className="max-w-2xl mx-auto">
                   <h2 className="text-2xl font-serif text-white mb-4">
-                    Chapter One
+                    {activePage}
                   </h2>
                   <p className="text-zinc-400 leading-relaxed mb-4">
                     The morning sun cast long shadows across the empty streets.
@@ -192,10 +211,17 @@ export function Hero() {
                     clouds in the crisp autumn air.
                   </p>
                   <p className="text-zinc-400 leading-relaxed">
-                    She had been walking for hours, lost in thought about the
-                    letter she'd received...
+                    {activePage === "Character Bible"
+                      ? "Sarah speaks carefully when she is afraid, hiding uncertainty behind precise observations."
+                      : activePage === "Research Notes"
+                        ? "Autumn light fades early at this latitude, leaving the street lamps to define the route home."
+                        : "She had been walking for hours, lost in thought about the letter she received."}
                   </p>
-                  <div className="mt-6 h-1 w-16 bg-blue-500 animate-pulse" />
+                  {showSuggestion && (
+                    <div className="mt-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
+                      Suggested change ready for review
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -214,9 +240,13 @@ export function Hero() {
                     Based on @Character Bible, Sarah's eyes should be blue, not
                     brown.
                   </div>
-                  <div className="p-3 rounded-lg bg-blue-600/20 text-sm text-blue-300 border border-blue-500/30">
-                    Make this paragraph more suspenseful?
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSuggestion(true)}
+                    className="w-full text-left p-3 rounded-lg bg-blue-600/20 text-sm text-blue-300 border border-blue-500/30 hover:bg-blue-600/30"
+                  >
+                    Make this paragraph more suspenseful
+                  </button>
                 </div>
                 <div className="p-4 border-t border-zinc-800">
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 text-zinc-500 text-sm">
@@ -233,5 +263,5 @@ export function Hero() {
         </motion.div>
       </div>
     </section>
-  )
+  );
 }

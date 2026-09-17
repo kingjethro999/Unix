@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { motion } from 'motion/react'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import Link from "next/link";
+import { motion } from "motion/react";
+import { ArrowRight, Sparkles } from "lucide-react";
 
 export function CTA() {
   return (
@@ -76,5 +76,5 @@ export function CTA() {
         </motion.div>
       </div>
     </section>
-  )
+  );
 }

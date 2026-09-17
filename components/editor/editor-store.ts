@@ -1,78 +1,98 @@
-'use client'
+"use client";
 
-import { useSyncExternalStore } from 'react'
-import { createPage, deletePage, renamePage, updatePageContent, getPageContent, renameFolder } from '@/app/workspace/actions'
-import { toast } from 'sonner'
+import { useSyncExternalStore } from "react";
+import type { JSONContent } from "@tiptap/core";
+import { toast } from "sonner";
+import {
+  createPage,
+  deletePage,
+  getPageContent,
+  renameFolder,
+  renamePage,
+  saveDocument,
+} from "@/app/workspace/actions";
+import {
+  EMPTY_DOCUMENT,
+  documentToText,
+  normalizeDocument,
+  textToDocument,
+} from "@/lib/document";
 
-// Types
+export type SaveStatus =
+  | "saved"
+  | "saving"
+  | "unsaved"
+  | "offline"
+  | "conflict"
+  | "error";
+
+export interface EditProposal {
+  id: string;
+  fileId: string;
+  baseRevision: number;
+  from: number;
+  to: number;
+  expectedText: string;
+  replacementText: string;
+  contextBefore: string;
+  contextAfter: string;
+  description?: string;
+  kind: "selection" | "document";
+}
+
 export interface EditorFile {
-  id: string
-  title: string
-  content: string
-  isModified: boolean
-  // NEW: Review state
-  isReviewing?: boolean
-  originalContent?: string | null // Snapshot before AI edit
+  id: string;
+  title: string;
+  content: string;
+  document: JSONContent;
+  revision: number;
+  isLoaded: boolean;
+  isModified: boolean;
+  saveStatus: SaveStatus;
+  pendingEdit?: EditProposal | null;
+  isReviewing?: boolean;
+  originalContent?: string | null;
 }
 
 export interface EditorTab {
-  id: string
-  fileId: string
-  title: string
-  isActive: boolean
-  isPinned: boolean
+  id: string;
+  fileId: string;
+  title: string;
+  isActive: boolean;
+  isPinned: boolean;
 }
-
 export interface LayoutState {
-  leftSidebarWidth: number
-  rightSidebarWidth: number
-  leftSidebarVisible: boolean
-  rightSidebarVisible: boolean
+  leftSidebarWidth: number;
+  rightSidebarWidth: number;
+  leftSidebarVisible: boolean;
+  rightSidebarVisible: boolean;
 }
-
-// NEW: Selection type
 export interface EditorSelection {
-  fileId: string
-  text: string
-  start: number
-  end: number
+  fileId: string;
+  text: string;
+  start: number;
+  end: number;
+  baseRevision: number;
+  contextBefore: string;
+  contextAfter: string;
 }
-
 export interface EditorState {
-  files: EditorFile[]
-  tabs: EditorTab[]
-  activeTabId: string | null
-  layout: LayoutState
-  activeSelection: EditorSelection | null
-  // NEW: Workspace context
-  workspaceId: string | null
-  userId: string | null
-  folderName: string
+  files: EditorFile[];
+  tabs: EditorTab[];
+  activeTabId: string | null;
+  layout: LayoutState;
+  activeSelection: EditorSelection | null;
+  workspaceId: string | null;
+  userId: string | null;
+  folderName: string;
 }
 
-// Default layout state
 const defaultLayout: LayoutState = {
   leftSidebarWidth: 260,
-  rightSidebarWidth: 320,
+  rightSidebarWidth: 340,
   leftSidebarVisible: true,
   rightSidebarVisible: true,
-}
-
-// NEW: History entry for undo/redo
-interface HistoryEntry {
-  content: string
-  timestamp: number
-}
-
-// History stacks per file
-const historyStacks = new Map<string, {
-  undoStack: HistoryEntry[]
-  redoStack: HistoryEntry[]
-}>()
-
-const HISTORY_LIMIT = 100
-
-// Store implementation
+};
 let state: EditorState = {
   files: [],
   tabs: [],
@@ -81,938 +101,643 @@ let state: EditorState = {
   activeSelection: null,
   workspaceId: null,
   userId: null,
-  folderName: 'UNIX',
+  folderName: "UNIX",
+};
+const listeners = new Set<() => void>();
+const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const savesInFlight = new Set<string>();
+let connectionListenersAttached = false;
+const editorCommands = new Map<
+  string,
+  {
+    apply: (proposal: EditProposal) => boolean;
+    undo: () => boolean;
+    redo: () => boolean;
+    canUndo: () => boolean;
+    canRedo: () => boolean;
+    insertImage: (src: string, alt: string) => boolean;
+  }
+>();
+
+function emit() {
+  listeners.forEach((listener) => listener());
 }
-
-const listeners: Set<() => void> = new Set()
-
-function emitChange() {
-  listeners.forEach((listener) => listener())
+function patchFile(fileId: string, patch: Partial<EditorFile>) {
+  state = {
+    ...state,
+    files: state.files.map((file) =>
+      file.id === fileId ? { ...file, ...patch } : file,
+    ),
+  };
+  emit();
 }
-
-// localStorage keys
-const STORAGE_KEY_PREFIX = 'unix-editor-'
-const SYNC_QUEUE_KEY = 'unix-sync-queue'
-
-// Sync queue for offline changes
-interface SyncQueueItem {
-  fileId: string
-  content: string
-  timestamp: number
+function storageKey(id: string) {
+  return `unix-document-${id}`;
 }
-
-// Get sync queue from localStorage
-function getSyncQueue(): SyncQueueItem[] {
-  if (typeof window === 'undefined') return []
+function writeCache(file: EditorFile) {
   try {
-    const queue = localStorage.getItem(SYNC_QUEUE_KEY)
-    return queue ? JSON.parse(queue) : []
+    localStorage.setItem(
+      storageKey(file.id),
+      JSON.stringify({
+        document: file.document,
+        text: file.content,
+        revision: file.revision,
+      }),
+    );
   } catch {
-    return []
+    /* storage is best effort */
   }
 }
 
-// Add to sync queue
-function addToSyncQueue(fileId: string, content: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const queue = getSyncQueue()
-    // Remove any existing entry for this file
-    const filtered = queue.filter(item => item.fileId !== fileId)
-    // Add new entry
-    filtered.push({ fileId, content, timestamp: Date.now() })
-    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(filtered))
-  } catch (error) {
-    console.error('Failed to add to sync queue:', error)
-  }
-}
-
-// Remove from sync queue
-function removeFromSyncQueue(fileId: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const queue = getSyncQueue()
-    const filtered = queue.filter(item => item.fileId !== fileId)
-    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(filtered))
-  } catch (error) {
-    console.error('Failed to remove from sync queue:', error)
-  }
-}
-
-// Save to localStorage immediately
-function saveToLocalStorage(fileId: string, content: string) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(`${STORAGE_KEY_PREFIX}${fileId}`, content)
-  } catch (error) {
-    console.error('Failed to save to localStorage:', error)
-  }
-}
-
-// Load from localStorage
-function loadFromLocalStorage(fileId: string): string | null {
-  if (typeof window === 'undefined') return null
-  try {
-    return localStorage.getItem(`${STORAGE_KEY_PREFIX}${fileId}`)
-  } catch {
-    return null
-  }
-}
-
-// Debounced save to database with offline support
-let saveTimeouts: Map<string, NodeJS.Timeout> = new Map()
-
-async function debouncedSave(fileId: string, content: string, reviewState?: { is_reviewing: boolean, original_content: string | null | undefined } | null) {
-  // 1. IMMEDIATE: Save to localStorage for instant offline access
-  saveToLocalStorage(fileId, content)
-
-  // 2. Clear existing timeout for this file
-  const existingTimeout = saveTimeouts.get(fileId)
-  if (existingTimeout) {
-    clearTimeout(existingTimeout)
-  }
-
-  // 3. Set new timeout for DB sync
-  const timeout = setTimeout(async () => {
-    // Check if online
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      // Offline: add to sync queue
-      addToSyncQueue(fileId, content)
-      toast.info('Working offline', {
-        description: 'Your changes are saved locally and will sync when you reconnect to the internet.',
-        duration: 3000,
-      })
-      return
+function scheduleSave(fileId: string) {
+  const prior = saveTimers.get(fileId);
+  if (prior) clearTimeout(prior);
+  const timer = setTimeout(async () => {
+    saveTimers.delete(fileId);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      patchFile(fileId, { saveStatus: "offline", isModified: true });
+      return;
     }
-
+    if (savesInFlight.has(fileId)) {
+      scheduleSave(fileId);
+      return;
+    }
+    const file = state.files.find((item) => item.id === fileId);
+    if (!file) return;
+    savesInFlight.add(fileId);
+    const savedDocument = JSON.stringify(file.document);
+    patchFile(fileId, { saveStatus: "saving" });
     try {
-      // Online: sync to database
-      const bodyText = content.replace(/[#*_`~\[\]()]/g, '').trim()
-
-      // If reviewState is explicitly passed (null or object), use it.
-      // Otherwise, infer from current file state if undef/missing
-      let finalReviewState = reviewState
-
-      if (reviewState === undefined) {
-        const file = state.files.find(f => f.id === fileId)
-        finalReviewState = file?.isReviewing ? {
-          is_reviewing: true,
-          original_content: file.originalContent
-        } : null
+      const result = await saveDocument(fileId, {
+        document: file.document,
+        expectedRevision: file.revision,
+      });
+      const latest = state.files.find((item) => item.id === fileId);
+      if (!latest) return;
+      if (!result.ok) {
+        patchFile(fileId, { saveStatus: "conflict" });
+        toast.error("This document changed elsewhere", {
+          description:
+            "Your local draft is safe. Reload or copy it before resolving the conflict.",
+        });
+      } else {
+        const unchangedSinceRequest =
+          JSON.stringify(latest.document) === savedDocument;
+        patchFile(fileId, {
+          revision: result.revision,
+          saveStatus: unchangedSinceRequest ? "saved" : "unsaved",
+          isModified: !unchangedSinceRequest,
+        });
       }
-
-      await updatePageContent(fileId, { content, review_state: finalReviewState }, bodyText)
-
-      // Remove from sync queue if it was there
-      removeFromSyncQueue(fileId)
-
-      // Mark as not modified after successful save
-      state = {
-        ...state,
-        files: state.files.map((f) =>
-          f.id === fileId ? { ...f, isModified: false } : f
-        ),
-      }
-      emitChange()
-    } catch (error) {
-      // Add to sync queue for retry
-      addToSyncQueue(fileId, content)
-
-      // Show user-friendly message
-      toast.warning('Unable to sync to cloud', {
-        description: 'Your changes are saved locally. Please check your internet connection.',
-        duration: 4000,
-      })
+    } catch {
+      patchFile(fileId, { saveStatus: "error", isModified: true });
+      toast.error("Could not save", {
+        description:
+          "Your draft remains on this device and will be retried when the connection returns.",
+      });
+      window.setTimeout(() => {
+        const pending = state.files.find((item) => item.id === fileId);
+        if (
+          pending?.isModified &&
+          typeof navigator !== "undefined" &&
+          navigator.onLine
+        ) {
+          patchFile(fileId, { saveStatus: "unsaved" });
+          scheduleSave(fileId);
+        }
+      }, 5_000);
     } finally {
-      saveTimeouts.delete(fileId)
+      savesInFlight.delete(fileId);
+      const latest = state.files.find((item) => item.id === fileId);
+      if (latest?.isModified && latest.saveStatus === "unsaved")
+        scheduleSave(fileId);
     }
-  }, 1000) // 1 second debounce
-
-  saveTimeouts.set(fileId, timeout)
+  }, 700);
+  saveTimers.set(fileId, timer);
 }
 
-// Process sync queue (call when coming back online)
-async function processSyncQueue() {
-  if (typeof window === 'undefined') return
-
-  const queue = getSyncQueue()
-  if (queue.length === 0) return
-
-  toast.info('Syncing changes', {
-    description: `Syncing ${queue.length} ${queue.length === 1 ? 'change' : 'changes'} to the cloud...`,
-    duration: 2000,
-  })
-
-  let successCount = 0
-  let failCount = 0
-
-  for (const item of queue) {
-    try {
-      const bodyText = item.content.replace(/[#*_`~\[\]()]/g, '').trim()
-      await updatePageContent(item.fileId, { content: item.content }, bodyText)
-      removeFromSyncQueue(item.fileId)
-      successCount++
-    } catch (error) {
-      // Leave in queue for next retry
-      failCount++
-    }
-  }
-
-  // Show results
-  if (successCount > 0) {
-    toast.success('Changes synced', {
-      description: `Successfully synced ${successCount} ${successCount === 1 ? 'change' : 'changes'} to the cloud.`,
-      duration: 3000,
-    })
-  }
-
-  if (failCount > 0) {
-    toast.warning('Some changes not synced', {
-      description: `${failCount} ${failCount === 1 ? 'change' : 'changes'} could not be synced. Please check your internet connection.`,
-      duration: 4000,
-    })
-  }
+function attachConnectionListeners() {
+  if (connectionListenersAttached || typeof window === "undefined") return;
+  connectionListenersAttached = true;
+  window.addEventListener("offline", () => {
+    state.files
+      .filter((file) => file.isModified)
+      .forEach((file) => patchFile(file.id, { saveStatus: "offline" }));
+  });
+  window.addEventListener("online", () => {
+    state.files
+      .filter((file) => file.isModified)
+      .forEach((file) => {
+        patchFile(file.id, { saveStatus: "unsaved" });
+        scheduleSave(file.id);
+      });
+  });
 }
-
-// Listen for online/offline events
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => {
-    toast.success('Back online', {
-      description: 'Syncing your changes to the cloud...',
-      duration: 2000,
-    })
-    void processSyncQueue()
-  })
-
-  window.addEventListener('offline', () => {
-    toast.info('You are offline', {
-      description: 'Changes will be saved locally and synced when you reconnect.',
-      duration: 3000,
-    })
-  })
-}
-
-
-// History grouping
-const lastChangeTimes = new Map<string, number>()
-const HISTORY_THRESHOLD = 1000 // 1 second grouping
 
 export const editorStore = {
   getState: () => state,
-
   subscribe: (listener: () => void) => {
-    listeners.add(listener)
-    return () => listeners.delete(listener)
+    listeners.add(listener);
+    return () => listeners.delete(listener);
   },
 
-  // NEW: Search & Replace Actions
-  replaceText: (fileId: string, targetText: string, replacementText: string) => {
-    const file = state.files.find((f) => f.id === fileId)
-    if (!file) return
-
-    let newContent = file.content
-
-    // Check if selection matches target
-    if (state.activeSelection && state.activeSelection.fileId === fileId && state.activeSelection.text === targetText) {
-      const before = file.content.substring(0, state.activeSelection.start)
-      const after = file.content.substring(state.activeSelection.end)
-      newContent = before + replacementText + after
-      editorStore.setSelection(null)
-    } else {
-      // Replace first occurrence
-      newContent = file.content.replace(targetText, replacementText)
-    }
-
-    if (newContent !== file.content) {
-      editorStore.updateFileContent(fileId, newContent)
-      toast.success('Text replaced')
-    } else {
-      toast.info('Text not found')
-    }
-  },
-
-  searchAndReplace: (query: string, replacement: string, scope: 'file' | 'workspace' = 'file') => {
-    if (scope === 'file') {
-      const activeTab = state.tabs.find(t => t.id === state.activeTabId)
-      if (!activeTab) return
-
-      const fileId = activeTab.fileId
-      const file = state.files.find(f => f.id === fileId)
-      if (!file) return
-
-      const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
-      const newContent = file.content.replace(regex, replacement)
-
-      if (newContent !== file.content) {
-        editorStore.updateFileContent(fileId, newContent)
-        toast.success(`Replaced all occurrences in "${file.title}"`)
-      } else {
-        toast.info('No matches found')
-      }
-    } else {
-      let matchCount = 0
-      state.files.forEach(file => {
-        const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
-        if (regex.test(file.content)) {
-          const newContent = file.content.replace(regex, replacement)
-          editorStore.updateFileContent(file.id, newContent)
-          matchCount++
-        }
-      })
-
-      if (matchCount > 0) {
-        toast.success(`Replaced text in ${matchCount} files`)
-      } else {
-        toast.info('No matches found in any open files')
-      }
-    }
-  },
-
-  // Initialize from database
-  initFromDatabase: async (
+  async initFromDatabase(
     folder: { id: string; name: string },
-    pages: Array<{ id: string; title: string; folder_id: string }>,
-    userId?: string
-  ) => {
-    // Convert pages to files
+    pages: Array<{
+      id: string;
+      title: string;
+      folder_id: string;
+      revision?: number;
+    }>,
+    userId?: string,
+  ) {
+    attachConnectionListeners();
     const files: EditorFile[] = pages.map((page) => ({
       id: page.id,
       title: page.title,
-      content: '', // Will be loaded on demand
+      content: "",
+      document: EMPTY_DOCUMENT,
+      revision: page.revision || 1,
+      isLoaded: false,
       isModified: false,
-    }))
-
-    // Create .unixrc file if it doesn't exist in DB
-    const hasUnixrc = files.some((f) => f.title === '.unixrc')
-    if (!hasUnixrc) {
-      try {
-        const defaultUnixrcContent = '# Unix Style Guide\n\nTarget Audience: Young Adult\nPOV: First Person (Present Tense)\n\nRules:\n- No adverbs unless absolutely necessary.\n- Show, don\'t tell.\n- Keep dialogue snappy.\n- No flowery prose.'
-
-        // Create .unixrc page in database
-        const newPage = await createPage(folder.id, '.unixrc')
-
-        // Update its content
-        await updatePageContent(newPage.id, { content: defaultUnixrcContent }, defaultUnixrcContent)
-
-        // Add to files
-        files.push({
-          id: newPage.id,
-          title: '.unixrc',
-          content: defaultUnixrcContent,
-          isModified: false,
-        })
-      } catch (error) {
-        console.error('Failed to create .unixrc page:', error)
-        // If DB creation fails, add locally anyway
-        files.push({
-          id: 'unixrc-temp-' + Date.now(),
-          title: '.unixrc',
-          content: '# Unix Style Guide\n\nTarget Audience: Young Adult\nPOV: First Person (Present Tense)\n\nRules:\n- No adverbs unless absolutely necessary.\n- Show, don\'t tell.\n- Keep dialogue snappy.\n- No flowery prose.',
-          isModified: false,
-        })
-      }
-    }
-
-    // Open first file if exists
-    let tabs: EditorTab[] = []
-    let activeTabId: string | null = null
-
-    if (files.length > 0 && files[0]) {
-      const firstFile = files[0]
-      tabs = [
-        {
-          id: 'tab-initial',
-          fileId: firstFile.id,
-          title: firstFile.title,
-          isActive: true,
-          isPinned: false,
-        },
-      ]
-      activeTabId = 'tab-initial'
-    }
-
+      saveStatus: "saved",
+    }));
+    const first = files[0];
     state = {
       files,
-      tabs,
-      activeTabId,
-      layout: defaultLayout,
-      activeSelection: null,
       workspaceId: folder.id,
-      userId: userId ?? null,
+      userId: userId || null,
       folderName: folder.name,
-    }
-
-    // TRIGGER LOAD FOR INITIAL FILE
-    if (activeTabId) {
-      const initialTab = tabs.find(t => t.id === activeTabId)
-      if (initialTab) {
-        editorStore.loadFileContent(initialTab.fileId)
-      }
-    }
-
-    emitChange()
+      activeSelection: null,
+      layout: state.layout,
+      tabs: first
+        ? [
+            {
+              id: `tab-${first.id}`,
+              fileId: first.id,
+              title: first.title,
+              isActive: true,
+              isPinned: false,
+            },
+          ]
+        : [],
+      activeTabId: first ? `tab-${first.id}` : null,
+    };
+    emit();
+    if (first) await this.loadFileContent(first.id);
   },
 
-  // Load content for a file on-demand
-  loadFileContent: async (fileId: string) => {
+  initReadOnly(
+    folder: { id: string; name: string },
+    pages: Array<{
+      id: string;
+      title: string;
+      revision: number;
+      document: JSONContent;
+      content: string;
+    }>,
+  ) {
+    const files: EditorFile[] = pages.map((page) => ({
+      id: page.id,
+      title: page.title,
+      content: page.content,
+      document: normalizeDocument(page.document),
+      revision: page.revision,
+      isLoaded: true,
+      isModified: false,
+      saveStatus: "saved",
+    }));
+    const first = files[0];
+    state = {
+      files,
+      workspaceId: folder.id,
+      userId: null,
+      folderName: folder.name,
+      activeSelection: null,
+      layout: state.layout,
+      tabs: first
+        ? [
+            {
+              id: `tab-${first.id}`,
+              fileId: first.id,
+              title: first.title,
+              isActive: true,
+              isPinned: false,
+            },
+          ]
+        : [],
+      activeTabId: first ? `tab-${first.id}` : null,
+    };
+    emit();
+  },
+
+  async loadFileContent(fileId: string) {
+    const file = state.files.find((item) => item.id === fileId);
+    if (!file || file.isLoaded) return;
     try {
-      // 1. FIRST: Check localStorage for instant access (offline or cached)
-      const cachedContent = loadFromLocalStorage(fileId)
-      if (cachedContent !== null) {
-        console.log(`Loaded from localStorage: ${fileId}`)
-        state = {
-          ...state,
-          files: state.files.map((f) =>
-            f.id === fileId ? { ...f, content: cachedContent } : f
-          ),
+      const row = await getPageContent(fileId);
+      if (!row) throw new Error("Document not found");
+      const document = normalizeDocument(row.document);
+      patchFile(fileId, {
+        document,
+        content: row.text ?? documentToText(document),
+        revision: row.revision,
+        isLoaded: true,
+        saveStatus: "saved",
+      });
+    } catch {
+      try {
+        const cached = JSON.parse(
+          localStorage.getItem(storageKey(fileId)) || "null",
+        );
+        if (cached?.document) {
+          patchFile(fileId, {
+            document: normalizeDocument(cached.document),
+            content: cached.text || documentToText(cached.document),
+            revision: cached.revision || file.revision,
+            isLoaded: true,
+            saveStatus: "error",
+          });
+          return;
         }
-        emitChange()
-
-        // Still fetch from DB in background to check for updates (if online)
-        if (typeof window !== 'undefined' && navigator.onLine) {
-          void getPageContent(fileId).then((pageData) => {
-            if (pageData) {
-              const contentData = Array.isArray(pageData.content) ? pageData.content[0] : pageData.content
-              const dbContent = contentData?.body_json?.content || ''
-
-              // Only update if DB content is different from cached
-              if (dbContent !== cachedContent) {
-                console.log(`DB content differs, updating: ${fileId}`)
-                state = {
-                  ...state,
-                  files: state.files.map((f) =>
-                    f.id === fileId ? { ...f, content: dbContent } : f
-                  ),
-                }
-                // Update localStorage with latest from DB
-                saveToLocalStorage(fileId, dbContent)
-                emitChange()
-              }
-            }
-          }).catch(() => {
-            // Silent fail - we already loaded from cache
-          })
-        }
-        return
+      } catch {
+        /* ignore corrupt cache */
       }
-
-      // 2. FALLBACK: Load from database if not in localStorage
-      const pageData = await getPageContent(fileId)
-      if (pageData) {
-        // Content comes as an array from Supabase join, get first element
-        const contentData = Array.isArray(pageData.content) ? pageData.content[0] : pageData.content
-        const bodyJson = contentData?.body_json || {}
-        const content = bodyJson.content || ''
-
-        // Check for review state
-        const reviewState = bodyJson.review_state
-        const isReviewing = reviewState?.is_reviewing || false
-        const originalContent = reviewState?.original_content || null
-
-        // Save to localStorage for future offline access
-        saveToLocalStorage(fileId, content)
-
-        state = {
-          ...state,
-          files: state.files.map((f) =>
-            f.id === fileId ? {
-              ...f,
-              content,
-              isReviewing,
-              originalContent: originalContent || (isReviewing ? '' : null) // Ensure string or null
-            } : f
-          ),
-        }
-        emitChange()
-      }
-    } catch (error) {
-      // Last resort: try localStorage again
-      const cachedContent = loadFromLocalStorage(fileId)
-      if (cachedContent !== null) {
-        state = {
-          ...state,
-          files: state.files.map((f) =>
-            f.id === fileId ? { ...f, content: cachedContent } : f
-          ),
-        }
-        emitChange()
-      } else {
-        // File not in cache and DB failed
-        toast.error('Unable to load file', {
-          description: 'Please check your internet connection and try again.',
-          duration: 4000,
-        })
-      }
+      toast.error("Unable to load document");
     }
   },
 
-  setSelection: (selection: EditorSelection | null) => {
-    state = { ...state, activeSelection: selection }
-    listeners.forEach((listener) => listener())
+  async refreshFile(fileId: string) {
+    const file = state.files.find((item) => item.id === fileId);
+    if (
+      !file ||
+      !file.isLoaded ||
+      file.isModified ||
+      file.saveStatus === "saving"
+    )
+      return;
+    try {
+      const row = await getPageContent(fileId);
+      if (row && row.revision > file.revision)
+        patchFile(fileId, {
+          document: normalizeDocument(row.document),
+          content: row.text,
+          revision: row.revision,
+          saveStatus: "saved",
+        });
+    } catch {
+      /* reconnect on the next poll */
+    }
   },
 
-  // Tab actions
-  openFile: (fileId: string) => {
-    const file = state.files.find((f) => f.id === fileId)
-    if (!file) return
+  replaceLoadedFile(
+    fileId: string,
+    document: JSONContent,
+    content: string,
+    revision: number,
+  ) {
+    patchFile(fileId, {
+      document: normalizeDocument(document),
+      content,
+      revision,
+      isLoaded: true,
+      isModified: false,
+      saveStatus: "saved",
+    });
+  },
 
-    const existingTab = state.tabs.find((t) => t.fileId === fileId)
-    if (existingTab) {
-      state = {
-        ...state,
-        tabs: state.tabs.map((t) => ({
-          ...t,
-          isActive: t.id === existingTab.id,
-        })),
-        activeTabId: existingTab.id,
-        activeSelection: null,
-      }
-    } else {
-      const newTab: EditorTab = {
-        id: `tab-${Date.now()}`,
+  updateFileDocument(fileId: string, document: JSONContent, text?: string) {
+    const file = state.files.find((item) => item.id === fileId);
+    if (!file) return;
+    const normalized = normalizeDocument(document);
+    const nextText = text ?? documentToText(normalized);
+    const next = {
+      ...file,
+      document: normalized,
+      content: nextText,
+      isLoaded: true,
+      isModified: true,
+      saveStatus: "unsaved" as const,
+    };
+    patchFile(fileId, next);
+    writeCache(next);
+    scheduleSave(fileId);
+  },
+
+  updateFileContent(fileId: string, content: string) {
+    this.updateFileDocument(fileId, textToDocument(content), content);
+  },
+  setSelection(selection: EditorSelection | null) {
+    state = { ...state, activeSelection: selection };
+    emit();
+  },
+  registerEditor(
+    fileId: string,
+    commands: typeof editorCommands extends Map<string, infer V> ? V : never,
+  ) {
+    editorCommands.set(fileId, commands);
+    return () => {
+      editorCommands.delete(fileId);
+    };
+  },
+
+  proposeSelectionEdit(
+    fileId: string,
+    replacementText: string,
+    description?: string,
+  ) {
+    const file = state.files.find((item) => item.id === fileId);
+    const selection = state.activeSelection;
+    if (!file || !selection || selection.fileId !== fileId || !selection.text)
+      return false;
+    const proposal: EditProposal = {
+      id: crypto.randomUUID(),
+      fileId,
+      baseRevision: selection.baseRevision,
+      from: selection.start,
+      to: selection.end,
+      expectedText: selection.text,
+      replacementText,
+      contextBefore: selection.contextBefore,
+      contextAfter: selection.contextAfter,
+      description,
+      kind: "selection",
+    };
+    patchFile(fileId, {
+      pendingEdit: proposal,
+      isReviewing: true,
+      originalContent: file.content,
+    });
+    return true;
+  },
+
+  proposeStoredEdit(proposal: EditProposal) {
+    const file = state.files.find((item) => item.id === proposal.fileId);
+    if (!file) return false;
+    patchFile(proposal.fileId, {
+      pendingEdit: proposal,
+      isReviewing: true,
+      originalContent: file.content,
+    });
+    return true;
+  },
+
+  proposeUpdate(fileId: string, newContent: string) {
+    const selection = state.activeSelection;
+    if (selection?.fileId === fileId)
+      return this.proposeSelectionEdit(
         fileId,
-        title: file.title,
-        isActive: true,
-        isPinned: false,
-      }
-      state = {
-        ...state,
-        tabs: [...state.tabs.map((t) => ({ ...t, isActive: false })), newTab],
-        activeTabId: newTab.id,
-        activeSelection: null,
-      }
-    }
-
-    // Load content if not already loaded
-    if (!file.content) {
-      editorStore.loadFileContent(fileId)
-    }
-
-    emitChange()
+        newContent,
+        "Rewrite selected passage",
+      );
+    toast.info("Select the passage to rewrite", {
+      description:
+        "Whole-document AI rewrites are disabled to protect formatting.",
+    });
+    return false;
   },
 
-  closeTab: (tabId: string) => {
-    const tabIndex = state.tabs.findIndex((t) => t.id === tabId)
-    if (tabIndex === -1) return
-
-    const newTabs = state.tabs.filter((t) => t.id !== tabId)
-    let newActiveTabId = state.activeTabId
-
-    if (state.activeTabId === tabId && newTabs.length > 0) {
-      const newActiveIndex = Math.min(tabIndex, newTabs.length - 1)
-      newActiveTabId = newTabs[newActiveIndex].id
-      newTabs[newActiveIndex] = { ...newTabs[newActiveIndex], isActive: true }
-    } else if (newTabs.length === 0) {
-      newActiveTabId = null
+  replaceText(fileId: string, targetText: string, replacementText: string) {
+    const selection = state.activeSelection;
+    if (
+      !selection ||
+      selection.fileId !== fileId ||
+      selection.text !== targetText
+    ) {
+      toast.error("The selected passage changed", {
+        description: "Select it again before creating the edit proposal.",
+      });
+      return false;
     }
-
-    state = { ...state, tabs: newTabs, activeTabId: newActiveTabId }
-    emitChange()
+    return this.proposeSelectionEdit(
+      fileId,
+      replacementText,
+      "Replace selected passage",
+    );
   },
 
-  setActiveTab: (tabId: string) => {
+  searchAndReplace(..._arguments: [string?, string?, ("file" | "workspace")?]) {
+    void _arguments;
+    toast.info(
+      "Use Find for manual replacements. AI bulk replacement requires individual review.",
+    );
+  },
+  acceptChange(fileId: string) {
+    const file = state.files.find((item) => item.id === fileId);
+    if (!file?.pendingEdit) return false;
+    if (file.revision !== file.pendingEdit.baseRevision) {
+      patchFile(fileId, { saveStatus: "conflict" });
+      toast.error("Suggestion is stale", {
+        description: "The document changed after this suggestion was created.",
+      });
+      return false;
+    }
+    const applied =
+      editorCommands.get(fileId)?.apply(file.pendingEdit) || false;
+    if (!applied) toast.error("Could not apply this suggestion safely");
+    return applied;
+  },
+  rejectChange(fileId: string) {
+    patchFile(fileId, {
+      pendingEdit: null,
+      isReviewing: false,
+      originalContent: null,
+    });
+    return true;
+  },
+  acceptAllReviews() {
+    state.files
+      .filter((file) => file.pendingEdit)
+      .forEach((file) => this.acceptChange(file.id));
+  },
+  rejectAllReviews() {
+    state.files
+      .filter((file) => file.pendingEdit)
+      .forEach((file) => this.rejectChange(file.id));
+  },
+  getReviewingFilesCount: () =>
+    state.files.filter((file) => file.pendingEdit).length,
+  insertImage(fileId: string, src: string, alt: string) {
+    return editorCommands.get(fileId)?.insertImage(src, alt) || false;
+  },
+  proposalApplied(fileId: string, document: JSONContent, text: string) {
+    patchFile(fileId, {
+      pendingEdit: null,
+      isReviewing: false,
+      originalContent: null,
+    });
+    this.updateFileDocument(fileId, document, text);
+  },
+
+  openFile(fileId: string) {
+    const file = state.files.find((item) => item.id === fileId);
+    if (!file) return;
+    const existing = state.tabs.find((tab) => tab.fileId === fileId);
+    const tabId = existing?.id || `tab-${fileId}`;
+    const tabs = existing
+      ? state.tabs
+      : [
+          ...state.tabs,
+          {
+            id: tabId,
+            fileId,
+            title: file.title,
+            isActive: false,
+            isPinned: false,
+          },
+        ];
     state = {
       ...state,
-      tabs: state.tabs.map((t) => ({ ...t, isActive: t.id === tabId })),
+      tabs: tabs.map((tab) => ({ ...tab, isActive: tab.id === tabId })),
       activeTabId: tabId,
       activeSelection: null,
-    }
-    emitChange()
+    };
+    emit();
+    void this.loadFileContent(fileId);
   },
-
-  reorderTabs: (fromIndex: number, toIndex: number) => {
-    const newTabs = [...state.tabs]
-    const [removed] = newTabs.splice(fromIndex, 1)
-    newTabs.splice(toIndex, 0, removed)
-    state = { ...state, tabs: newTabs }
-    emitChange()
-  },
-
-  // File actions
-  updateFileContent: (fileId: string, content: string, addToHistory = true) => {
-    const file = state.files.find((f) => f.id === fileId)
-    if (!file) return
-
-    // Add to history before changing
-    if (addToHistory && file.content !== content) {
-      const lastTime = lastChangeTimes.get(fileId) || 0
-      const now = Date.now()
-
-      // Only push to history if enough time has passed since last change
-      // This groups continuous typing into single undo steps
-      if (now - lastTime > HISTORY_THRESHOLD) {
-        const history = historyStacks.get(fileId) || { undoStack: [], redoStack: [] }
-        history.undoStack.push({ content: file.content, timestamp: now })
-
-        // Limit history size
-        if (history.undoStack.length > HISTORY_LIMIT) {
-          history.undoStack.shift()
-        }
-        // Clear redo stack on new change
-        history.redoStack = []
-        historyStacks.set(fileId, history)
-      }
-
-      lastChangeTimes.set(fileId, now)
-    }
-
+  closeTab(tabId: string) {
+    const index = state.tabs.findIndex((tab) => tab.id === tabId);
+    if (index < 0) return;
+    const tabs = state.tabs.filter((tab) => tab.id !== tabId);
+    const active =
+      state.activeTabId === tabId
+        ? tabs[Math.min(index, tabs.length - 1)]?.id || null
+        : state.activeTabId;
     state = {
       ...state,
-      files: state.files.map((f) =>
-        f.id === fileId ? { ...f, content, isModified: true } : f,
-      ),
-    }
-    emitChange()
-
-    // Auto-save to database (debounced)
-    debouncedSave(fileId, content)
+      tabs: tabs.map((tab) => ({ ...tab, isActive: tab.id === active })),
+      activeTabId: active,
+      activeSelection: null,
+    };
+    emit();
   },
-
-  // Undo/Redo actions
-  undo: (fileId: string) => {
-    const history = historyStacks.get(fileId)
-    if (!history || history.undoStack.length === 0) return
-
-    const file = state.files.find((f) => f.id === fileId)
-    if (!file) return
-
-    // Pop from undo stack
-    const previous = history.undoStack.pop()!
-
-    // Push current state to redo stack
-    history.redoStack.push({ content: file.content, timestamp: Date.now() })
-    if (history.redoStack.length > HISTORY_LIMIT) {
-      history.redoStack.shift()
-    }
-
-    // Update using internal method (skip adding to history)
-    editorStore.updateFileContent(fileId, previous.content, false)
+  setActiveTab(tabId: string) {
+    const tab = state.tabs.find((item) => item.id === tabId);
+    if (tab) this.openFile(tab.fileId);
   },
-
-  redo: (fileId: string) => {
-    const history = historyStacks.get(fileId)
-    if (!history || history.redoStack.length === 0) return
-
-    const file = state.files.find((f) => f.id === fileId)
-    if (!file) return
-
-    // Pop from redo stack
-    const next = history.redoStack.pop()!
-
-    // Push current state to undo stack
-    history.undoStack.push({ content: file.content, timestamp: Date.now() })
-    if (history.undoStack.length > HISTORY_LIMIT) {
-      history.redoStack.shift()
-    }
-
-    // Update using internal method (skip adding to history)
-    editorStore.updateFileContent(fileId, next.content, false)
+  reorderTabs(from: number, to: number) {
+    const tabs = [...state.tabs];
+    const [moved] = tabs.splice(from, 1);
+    tabs.splice(to, 0, moved);
+    state = { ...state, tabs };
+    emit();
   },
-
-  canUndo: (fileId: string) => {
-    const history = historyStacks.get(fileId)
-    return history ? history.undoStack.length > 0 : false
+  undo(fileId: string) {
+    editorCommands.get(fileId)?.undo();
   },
-
-  canRedo: (fileId: string) => {
-    const history = historyStacks.get(fileId)
-    return history ? history.redoStack.length > 0 : false
+  redo(fileId: string) {
+    editorCommands.get(fileId)?.redo();
   },
-
-  getHistoryInfo: (fileId: string) => {
-    const history = historyStacks.get(fileId)
+  getHistoryInfo(fileId: string) {
+    const commands = editorCommands.get(fileId);
     return {
-      canUndo: history ? history.undoStack.length > 0 : false,
-      canRedo: history ? history.redoStack.length > 0 : false,
-      undoCount: history ? history.undoStack.length : 0,
-      redoCount: history ? history.redoStack.length : 0,
-    }
+      canUndo: commands?.canUndo() || false,
+      canRedo: commands?.canRedo() || false,
+      undoCount: 0,
+      redoCount: 0,
+    };
   },
 
-
-
-  // NEW: AI Propose Logic
-  proposeUpdate: (fileId: string, newContent: string) => {
+  async renameFile(fileId: string, title: string) {
+    await renamePage(fileId, title);
     state = {
       ...state,
-      files: state.files.map((f) => {
-        if (f.id !== fileId) return f
-
-        // If already reviewing, update the "proposal" but keep original backup
-        if (f.isReviewing) {
-          return { ...f, content: newContent, isModified: true }
-        }
-
-        // New proposal: Snapshot current content
-        return {
-          ...f,
-          content: newContent,
-          isModified: true,
-          isReviewing: true,
-          originalContent: f.content,
-        }
-      }),
-    }
-    emitChange()
-
-    // Persist proposal to DB immediately
-    debouncedSave(fileId, newContent)
+      files: state.files.map((f) => (f.id === fileId ? { ...f, title } : f)),
+      tabs: state.tabs.map((t) => (t.fileId === fileId ? { ...t, title } : t)),
+    };
+    emit();
   },
-
-  acceptChange: (fileId: string) => {
+  async createFile(title: string) {
+    if (!state.workspaceId) return;
+    const page = await createPage(state.workspaceId, title);
+    const file: EditorFile = {
+      id: page.id,
+      title: page.title,
+      content: "",
+      document: EMPTY_DOCUMENT,
+      revision: page.revision,
+      isLoaded: true,
+      isModified: false,
+      saveStatus: "saved",
+    };
+    state = { ...state, files: [...state.files, file] };
+    emit();
+    this.openFile(file.id);
+    return file;
+  },
+  async deleteFile(fileId: string) {
+    await deletePage(fileId);
+    state.tabs
+      .filter((tab) => tab.fileId === fileId)
+      .forEach((tab) => this.closeTab(tab.id));
     state = {
       ...state,
-      files: state.files.map((f) => {
-        if (f.id !== fileId) return f
-        return {
-          ...f,
-          isReviewing: false,
-          originalContent: null, // Commit change
-        }
-      }),
-    }
-    emitChange()
-
-    // Save accepted change to database and clear review state
-    const file = state.files.find((f) => f.id === fileId)
-    if (file) {
-      debouncedSave(file.id, file.content, null) // Explicitly clear review state
-    }
+      files: state.files.filter((file) => file.id !== fileId),
+    };
+    emit();
+  },
+  async renameWorkspace(name: string) {
+    if (!state.workspaceId) return;
+    await renameFolder(state.workspaceId, name);
+    state = { ...state, folderName: name };
+    emit();
   },
 
-  rejectChange: (fileId: string) => {
-    state = {
-      ...state,
-      files: state.files.map((f) => {
-        if (f.id !== fileId) return f
-        // Revert to original
-        return {
-          ...f,
-          content: f.originalContent || f.content,
-          isReviewing: false,
-          originalContent: null,
-          isModified: true,
-        }
-      }),
-    }
-    emitChange()
-
-    // Save rejection (revert) to database and clear review state
-    const file = state.files.find((f) => f.id === fileId)
-    if (file) {
-      debouncedSave(file.id, file.content, null) // Explicitly clear review state
-    }
-  },
-
-  // BULK ACTIONS
-  acceptAllReviews: () => {
-    const reviewingFiles = state.files.filter((f) => f.isReviewing)
-
-    state = {
-      ...state,
-      files: state.files.map((f) => {
-        if (!f.isReviewing) return f
-        return {
-          ...f,
-          isReviewing: false,
-          originalContent: null,
-        }
-      }),
-    }
-    emitChange()
-
-    // Save all accepted changes
-    reviewingFiles.forEach((file) => {
-      debouncedSave(file.id, file.content, null) // Clear review state
-    })
-  },
-
-  rejectAllReviews: () => {
-    const reviewingFiles = state.files.filter((f) => f.isReviewing)
-
-    state = {
-      ...state,
-      files: state.files.map((f) => {
-        if (!f.isReviewing) return f
-        return {
-          ...f,
-          content: f.originalContent || f.content,
-          isReviewing: false,
-          originalContent: null,
-          isModified: true,
-        }
-      }),
-    }
-    emitChange()
-
-    // Save all rejected changes (revert)
-    reviewingFiles.forEach((file) => {
-      const revertedContent = file.originalContent || file.content
-      debouncedSave(file.id, revertedContent, null) // Clear review state
-    })
-  },
-
-  getReviewingFilesCount: () => {
-    return state.files.filter((f) => f.isReviewing).length
-  },
-
-  renameFile: async (fileId: string, newTitle: string) => {
-    // Optimistic update
-    state = {
-      ...state,
-      files: state.files.map((f) =>
-        f.id === fileId ? { ...f, title: newTitle } : f,
-      ),
-      tabs: state.tabs.map((t) =>
-        t.fileId === fileId ? { ...t, title: newTitle } : t,
-      ),
-    }
-    emitChange()
-
-    // Save to database
-    try {
-      await renamePage(fileId, newTitle)
-    } catch (error) {
-      console.error('Failed to rename file:', error)
-      // Revert on error - would need to store original title
-    }
-  },
-
-  createFile: async (title: string) => {
-    if (!state.workspaceId) {
-      console.error('No workspace ID')
-      return
-    }
-
-    try {
-      const newPage = await createPage(state.workspaceId, title.trim())
-
-      const newFile: EditorFile = {
-        id: newPage.id,
-        title: newPage.title,
-        content: '',
-        isModified: false,
-      }
-
-      state = {
-        ...state,
-        files: [...state.files, newFile],
-      }
-      emitChange()
-
-      // Auto-open the new file
-      editorStore.openFile(newFile.id)
-    } catch (error) {
-      console.error('Failed to create file:', error)
-    }
-  },
-
-  renameWorkspace: async (newName: string) => {
-    if (!state.workspaceId) return
-
-    const workspaceId = state.workspaceId
-    // Optimistic update
-    state = { ...state, folderName: newName }
-    emitChange()
-
-    // Save to database
-    try {
-      await renameFolder(workspaceId, newName)
-    } catch (error) {
-      console.error('Failed to rename workspace:', error)
-      // We might want to revert here, but for now we'll just log it
-      // as the UI will be correct until refresh anyway
-    }
-  },
-
-  deleteFile: async (fileId: string) => {
-    // Close any tabs with this file
-    const tabsToClose = state.tabs.filter((t) => t.fileId === fileId)
-    tabsToClose.forEach((tab) => editorStore.closeTab(tab.id))
-
-    // Optimistic removal
-    state = {
-      ...state,
-      files: state.files.filter((f) => f.id !== fileId),
-    }
-    emitChange()
-
-    // Delete from database
-    try {
-      await deletePage(fileId)
-    } catch (error) {
-      console.error('Failed to delete file:', error)
-    }
-  },
-
-  // Layout actions
-  setLeftSidebarWidth: (width: number) => {
-    state = { ...state, layout: { ...state.layout, leftSidebarWidth: width } }
-    emitChange()
-  },
-
-  setRightSidebarWidth: (width: number) => {
-    state = { ...state, layout: { ...state.layout, rightSidebarWidth: width } }
-    emitChange()
-  },
-
-  toggleLeftSidebar: () => {
+  toggleLeftSidebar() {
     state = {
       ...state,
       layout: {
         ...state.layout,
         leftSidebarVisible: !state.layout.leftSidebarVisible,
       },
-    }
-    emitChange()
+    };
+    emit();
   },
-
-  toggleRightSidebar: () => {
+  toggleRightSidebar() {
     state = {
       ...state,
       layout: {
         ...state.layout,
         rightSidebarVisible: !state.layout.rightSidebarVisible,
       },
-    }
-    emitChange()
+    };
+    emit();
   },
-
-  setLeftSidebar: (visible: boolean) => {
+  setLeftSidebar(value: boolean) {
     state = {
       ...state,
-      layout: {
-        ...state.layout,
-        leftSidebarVisible: visible,
-      },
-    }
-    emitChange()
+      layout: { ...state.layout, leftSidebarVisible: value },
+    };
+    emit();
   },
-
-  setRightSidebar: (visible: boolean) => {
+  setRightSidebar(value: boolean) {
     state = {
       ...state,
-      layout: {
-        ...state.layout,
-        rightSidebarVisible: visible,
-      },
-    }
-    emitChange()
+      layout: { ...state.layout, rightSidebarVisible: value },
+    };
+    emit();
   },
-}
+  setLeftSidebarWidth(value: number) {
+    state = { ...state, layout: { ...state.layout, leftSidebarWidth: value } };
+    emit();
+  },
+  setRightSidebarWidth(value: number) {
+    state = { ...state, layout: { ...state.layout, rightSidebarWidth: value } };
+    emit();
+  },
+};
 
-// React hooks
 export function useEditorState() {
   return useSyncExternalStore(
     editorStore.subscribe,
     editorStore.getState,
-    () => state,
-  )
+    editorStore.getState,
+  );
 }
-
 export function useActiveFile() {
-  const state = useEditorState()
-  const activeTab = state.tabs.find((t) => t.id === state.activeTabId)
-  if (!activeTab) return null
-  return state.files.find((f) => f.id === activeTab.fileId) || null
+  const current = useEditorState();
+  const tab = current.tabs.find((item) => item.id === current.activeTabId);
+  return tab
+    ? current.files.find((file) => file.id === tab.fileId) || null
+    : null;
 }

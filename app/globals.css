@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
@@ -11,18 +11,134 @@ body {
   @apply m-0 overflow-x-hidden;
   font-family:
     var(--font-geist-sans),
-    /* Prioritize Geist if available (Source B) */
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    /* Prioritize Geist if available (Source B) */ -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Roboto",
+    "Oxygen",
+    "Ubuntu",
+    "Cantarell",
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.unix-remote-cursor {
+  position: relative;
+  display: inline-block;
+  height: 1.35em;
+  margin-left: -1px;
+  border-left: 2px solid;
+  vertical-align: text-bottom;
+  pointer-events: none;
+}
+
+.unix-remote-cursor > span {
+  position: absolute;
+  left: -2px;
+  bottom: 100%;
+  max-width: 9rem;
+  padding: 1px 5px;
+  border-radius: 4px 4px 4px 0;
+  color: #09090b;
+  font-size: 9px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unix-editor {
+  min-height: calc(100vh - 11rem);
+  color: #e4e4e7;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.075rem;
+  line-height: 1.82;
+  overflow-wrap: anywhere;
+}
+
+.unix-editor p {
+  margin: 0 0 0.9em;
+}
+.unix-editor h1,
+.unix-editor h2,
+.unix-editor h3 {
+  color: #fafafa;
+  line-height: 1.25;
+  margin: 1.4em 0 0.6em;
+}
+.unix-editor h1 {
+  font-size: 2rem;
+}
+.unix-editor h2 {
+  font-size: 1.55rem;
+}
+.unix-editor h3 {
+  font-size: 1.25rem;
+}
+.unix-editor ul,
+.unix-editor ol {
+  padding-left: 1.6rem;
+  margin: 0.8rem 0;
+}
+.unix-editor blockquote {
+  border-left: 3px solid #3f3f46;
+  color: #a1a1aa;
+  padding-left: 1rem;
+}
+.unix-editor img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5rem auto;
+  border-radius: 0.5rem;
+}
+.unix-editor a {
+  color: #67e8f9;
+  text-decoration: underline;
+}
+.unix-editor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  table-layout: fixed;
+}
+.unix-editor th,
+.unix-editor td {
+  border: 1px solid #3f3f46;
+  padding: 0.5rem 0.65rem;
+  vertical-align: top;
+  position: relative;
+}
+.unix-editor th {
+  background: #18181b;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.85rem;
+}
+.unix-editor .selectedCell::after {
+  background: rgb(6 182 212 / 0.12);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.unix-editor ::selection {
+  background: rgb(6 182 212 / 0.25);
+  color: #ecfeff;
 }
 
 code {
   font-family:
     var(--font-geist-mono),
-    /* Prioritize Geist Mono if available (Source B) */
-    source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    /* Prioritize Geist Mono if available (Source B) */ source-code-pro,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Courier New",
+    monospace;
 }
 
 /* VARIABLES
@@ -170,7 +286,6 @@ code {
   border-radius: 2px;
   padding: 0 2px;
 }
-
 
 /* Global scrollbar styling */
 ::-webkit-scrollbar {

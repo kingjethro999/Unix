@@ -1,22 +1,22 @@
-import { Control, FieldPath, FieldValues } from 'react-hook-form'
+import { Control, FieldPath, FieldValues } from "react-hook-form";
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
 interface AuthFieldProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 > {
-  control: Control<TFieldValues>
-  name: TName
-  label: string
-  placeholder: string
-  type?: string
+  control: Control<TFieldValues>;
+  name: TName;
+  label: string;
+  placeholder: string;
+  type?: string;
 }
 
 export function AuthField<
@@ -27,7 +27,7 @@ export function AuthField<
   name,
   label,
   placeholder,
-  type = 'text',
+  type = "text",
 }: AuthFieldProps<TFieldValues, TName>) {
   return (
     <FormField
@@ -48,5 +48,5 @@ export function AuthField<
         </FormItem>
       )}
     />
-  )
+  );
 }

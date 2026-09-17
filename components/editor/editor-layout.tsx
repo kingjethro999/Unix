@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useRef, useState } from "react";
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -10,196 +10,240 @@ import {
   Undo2,
   Redo2,
   Command,
-  Share2
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useEditorState, editorStore, useActiveFile } from './editor-store'
-import { FileSidebar } from './file-sidebar'
-import { EditorTabs } from './editor-tabs'
-import { EditorWorkspace } from './editor-workspace'
-import { AIChatSidebar } from './ai-chat-sidebar'
-import { AnalysisSidebar } from './analysis-sidebar'
-import { ExportDialog } from './export-dialog'
-import { ShareModal } from './share-modal'
-import { motion, AnimatePresence } from 'motion/react'
-import Link from 'next/link'
+  Share2,
+  MessagesSquare,
+  History,
+  ScanText,
+  BookOpen,
+  Users,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useEditorState, editorStore, useActiveFile } from "./editor-store";
+import { FileSidebar } from "./file-sidebar";
+import { EditorTabs } from "./editor-tabs";
+import { EditorWorkspace } from "./editor-workspace";
+import { AIChatSidebar } from "./ai-chat-sidebar";
+import { ReviewPanel } from "./review-panel";
+import { VersionsPanel } from "./versions-panel";
+import { AnalysisPanel } from "./analysis-panel";
+import { WikiPanel } from "./wiki-panel";
+import { TeamPanel } from "./team-panel";
+import { ExportDialog } from "./export-dialog";
+import { ShareModal } from "./share-modal";
+import { motion, AnimatePresence } from "motion/react";
+import Link from "next/link";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface ResizeHandleProps {
-  side: 'left' | 'right'
-  onResize: (delta: number) => void
+  side: "left" | "right";
+  onResize: (delta: number) => void;
 }
 
 function ResizeHandle({ side, onResize }: ResizeHandleProps) {
-  const [isDragging, setIsDragging] = useState(false)
-  const startXRef = useRef(0)
+  const [isDragging, setIsDragging] = useState(false);
+  const startXRef = useRef(0);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-    startXRef.current = e.clientX
-  }
+    e.preventDefault();
+    setIsDragging(true);
+    startXRef.current = e.clientX;
+  };
 
   useEffect(() => {
-    if (!isDragging) return
+    if (!isDragging) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const delta = e.clientX - startXRef.current
-      startXRef.current = e.clientX
-      onResize(side === 'left' ? delta : -delta)
-    }
+      const delta = e.clientX - startXRef.current;
+      startXRef.current = e.clientX;
+      onResize(side === "left" ? delta : -delta);
+    };
 
     const handleMouseUp = () => {
-      setIsDragging(false)
-    }
+      setIsDragging(false);
+    };
 
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [isDragging, onResize, side])
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, onResize, side]);
 
   return (
     <div
       onMouseDown={handleMouseDown}
       className={cn(
-        'w-1 cursor-col-resize group relative z-10',
-        'hover:bg-cyan-500/30 transition-colors',
-        isDragging && 'bg-cyan-500/50',
+        "w-1 cursor-col-resize group relative z-10",
+        "hover:bg-cyan-500/30 transition-colors",
+        isDragging && "bg-cyan-500/50",
       )}
     >
       <div
         className={cn(
-          'absolute inset-y-0 w-4 -translate-x-1/2',
-          'flex items-center justify-center',
+          "absolute inset-y-0 w-4 -translate-x-1/2",
+          "flex items-center justify-center",
         )}
       >
         <div
           className={cn(
-            'w-0.5 h-8 rounded-full transition-all',
-            'bg-zinc-700 group-hover:bg-cyan-400',
-            isDragging && 'bg-cyan-400 h-12',
+            "w-0.5 h-8 rounded-full transition-all",
+            "bg-zinc-700 group-hover:bg-cyan-400",
+            isDragging && "bg-cyan-400 h-12",
           )}
         />
       </div>
     </div>
-  )
+  );
 }
 
 interface EditorLayoutProps {
-  folder: { id: string; name: string }
-  initialPages: Array<{ id: string; title: string; folder_id: string }>
-  userId: string
+  folder: { id: string; name: string };
+  initialPages: Array<{ id: string; title: string; folder_id: string }>;
+  userId: string;
 }
 
-export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps) {
-  const state = useEditorState()
-  const { layout } = state
-  const activeFile = useActiveFile()
-  const [isExportOpen, setIsExportOpen] = useState(false)
-  const [isShareOpen, setIsShareOpen] = useState(false)
-  const [rightSidebarTab, setRightSidebarTab] = useState<'chat' | 'analysis'>('chat')
+export function EditorLayout({
+  folder,
+  initialPages,
+  userId,
+}: EditorLayoutProps) {
+  const state = useEditorState();
+  const { layout } = state;
+  const activeFile = useActiveFile();
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [workspaceTool, setWorkspaceTool] = useState<
+    "review" | "versions" | "analysis" | "wiki" | "team" | null
+  >(null);
+  const tools = [
+    { id: "review", label: "Comments", icon: MessagesSquare },
+    { id: "analysis", label: "Analysis", icon: ScanText },
+    { id: "wiki", label: "World wiki", icon: BookOpen },
+    { id: "versions", label: "Draft history", icon: History },
+    { id: "team", label: "Team", icon: Users },
+  ] as const;
 
   // Force re-render on history changes (subscribing to store updates)
-  const [, setTick] = useState(0)
+  const [, setTick] = useState(0);
   useEffect(() => {
-    const unsub = editorStore.subscribe(() => setTick((t) => t + 1))
-    return () => { unsub() }
-  }, [])
+    const unsub = editorStore.subscribe(() => setTick((t) => t + 1));
+    return () => {
+      unsub();
+    };
+  }, []);
 
   const historyInfo = activeFile
     ? editorStore.getHistoryInfo(activeFile.id)
-    : { canUndo: false, canRedo: false }
+    : { canUndo: false, canRedo: false };
 
   // Initialize store with database data on mount
   useEffect(() => {
-    void editorStore.initFromDatabase(folder, initialPages, userId)
-  }, [folder.id]) // Re-init only if folder changes
+    void editorStore.initFromDatabase(folder, initialPages, userId);
+  }, [folder, initialPages, userId]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const current = editorStore.getState();
+      if (current.activeTabId) {
+        const tab = current.tabs.find(
+          (item) => item.id === current.activeTabId,
+        );
+        if (tab) void editorStore.refreshFile(tab.fileId);
+      }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Auto-hide sidebars on mobile
   useEffect(() => {
     const checkMobile = () => {
-      const isMobile = window.innerWidth < 768
+      const isMobile = window.innerWidth < 768;
       if (isMobile) {
-        editorStore.setLeftSidebar(false)
-        editorStore.setRightSidebar(false)
+        editorStore.setLeftSidebar(false);
+        editorStore.setRightSidebar(false);
       }
-    }
+    };
 
     // Check on mount
-    checkMobile()
+    checkMobile();
 
     // No resize listener - only check once on mount
     // User can manually toggle afterwards
-  }, [])
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd/Ctrl + B: Toggle left sidebar
-      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
-        e.preventDefault()
-        editorStore.toggleLeftSidebar()
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+        e.preventDefault();
+        editorStore.toggleLeftSidebar();
       }
       // Cmd/Ctrl + J or Cmd/Ctrl + K: Toggle right sidebar
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'j' || e.key === 'k')) {
-        e.preventDefault()
-        editorStore.toggleRightSidebar()
+      if ((e.metaKey || e.ctrlKey) && (e.key === "j" || e.key === "k")) {
+        e.preventDefault();
+        editorStore.toggleRightSidebar();
       }
       // Cmd/Ctrl + 1-9: Switch tabs
-      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '9') {
-        e.preventDefault()
-        const index = parseInt(e.key) - 1
+      if ((e.metaKey || e.ctrlKey) && e.key >= "1" && e.key <= "9") {
+        e.preventDefault();
+        const index = parseInt(e.key) - 1;
         if (state.tabs[index]) {
-          editorStore.setActiveTab(state.tabs[index].id)
+          editorStore.setActiveTab(state.tabs[index].id);
         }
       }
       // Cmd/Ctrl + W: Close current tab
-      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
-        e.preventDefault()
+      if ((e.metaKey || e.ctrlKey) && e.key === "w") {
+        e.preventDefault();
         if (state.activeTabId) {
-          editorStore.closeTab(state.activeTabId)
+          editorStore.closeTab(state.activeTabId);
         }
       }
       // Cmd/Ctrl + Z: Undo
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        if (activeFile) editorStore.undo(activeFile.id)
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        if (activeFile) editorStore.undo(activeFile.id);
       }
       // Cmd/Ctrl + Shift + Z: Redo
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
-        e.preventDefault()
-        if (activeFile) editorStore.redo(activeFile.id)
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+        e.preventDefault();
+        if (activeFile) editorStore.redo(activeFile.id);
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [state.tabs, state.activeTabId, activeFile])
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [state.tabs, state.activeTabId, activeFile]);
 
   const handleLeftResize = useCallback(
     (delta: number) => {
       const newWidth = Math.max(
         200,
         Math.min(400, layout.leftSidebarWidth + delta),
-      )
-      editorStore.setLeftSidebarWidth(newWidth)
+      );
+      editorStore.setLeftSidebarWidth(newWidth);
     },
     [layout.leftSidebarWidth],
-  )
+  );
 
   const handleRightResize = useCallback(
     (delta: number) => {
       const newWidth = Math.max(
         280,
         Math.min(500, layout.rightSidebarWidth + delta),
-      )
-      editorStore.setRightSidebarWidth(newWidth)
+      );
+      editorStore.setRightSidebarWidth(newWidth);
     },
     [layout.rightSidebarWidth],
-  )
+  );
 
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-950 text-white overflow-hidden">
@@ -226,10 +270,26 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
           </button>
           <div className="h-4 w-px bg-zinc-800" />
           <span className="text-xs text-zinc-600 font-mono">
-            <Link href="/">
-              Unix Editor
-            </Link>
+            <Link href="/">Unix Editor</Link>
           </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="ml-2 rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200">
+                Workspace
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              {tools.map((tool) => (
+                <DropdownMenuItem
+                  key={tool.id}
+                  onSelect={() => setWorkspaceTool(tool.id)}
+                >
+                  <tool.icon size={14} className="mr-2" />
+                  {tool.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Toolbar Actions */}
@@ -241,7 +301,7 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
               "p-2 rounded-lg transition-colors",
               historyInfo.canUndo
                 ? "hover:bg-white/5 text-zinc-400 hover:text-zinc-200"
-                : "text-zinc-700 cursor-not-allowed"
+                : "text-zinc-700 cursor-not-allowed",
             )}
             title="Undo (⌘Z)"
           >
@@ -254,7 +314,7 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
               "p-2 rounded-lg transition-colors",
               historyInfo.canRedo
                 ? "hover:bg-white/5 text-zinc-400 hover:text-zinc-200"
-                : "text-zinc-700 cursor-not-allowed"
+                : "text-zinc-700 cursor-not-allowed",
             )}
             title="Redo (⌘Shift+Z)"
           >
@@ -310,7 +370,7 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: layout.leftSidebarWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
               className="shrink-0 overflow-hidden"
             >
               <FileSidebar userId={userId} />
@@ -336,49 +396,43 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
           <ResizeHandle side="right" onResize={handleRightResize} />
         )}
 
-        {/* Right Sidebar (AI Chat / Analysis) */}
+        {/* Right sidebar */}
         <AnimatePresence mode="wait">
           {layout.rightSidebarVisible && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: layout.rightSidebarWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
               className="shrink-0 overflow-hidden flex flex-col h-full"
             >
-              {/* Tab Switcher */}
-              <div className="flex border-b border-zinc-800/50 bg-zinc-950 shrink-0">
-                <button
-                  onClick={() => setRightSidebarTab('chat')}
-                  className={cn(
-                    'flex-1 px-4 py-2.5 text-xs font-medium transition-colors',
-                    rightSidebarTab === 'chat'
-                      ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
-                  )}
-                >
-                  AI Chat
-                </button>
-                <button
-                  onClick={() => setRightSidebarTab('analysis')}
-                  className={cn(
-                    'flex-1 px-4 py-2.5 text-xs font-medium transition-colors',
-                    rightSidebarTab === 'analysis'
-                      ? 'text-pink-400 border-b-2 border-pink-400 bg-pink-500/5'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
-                  )}
-                >
-                  Analysis
-                </button>
-              </div>
-              {/* Tab Content */}
               <div className="flex-1 overflow-hidden">
-                {rightSidebarTab === 'chat' ? <AIChatSidebar /> : <AnalysisSidebar />}
+                <AIChatSidebar />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      <Dialog
+        open={workspaceTool !== null}
+        onOpenChange={(open) => !open && setWorkspaceTool(null)}
+      >
+        <DialogContent className="h-[min(760px,88vh)] max-w-3xl overflow-hidden border-zinc-800 bg-zinc-950 p-0">
+          <DialogTitle className="sr-only">Workspace tools</DialogTitle>
+          {workspaceTool === "review" ? (
+            <ReviewPanel />
+          ) : workspaceTool === "versions" ? (
+            <VersionsPanel />
+          ) : workspaceTool === "analysis" ? (
+            <AnalysisPanel />
+          ) : workspaceTool === "wiki" ? (
+            <WikiPanel />
+          ) : workspaceTool === "team" ? (
+            <TeamPanel />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* Keyboard shortcuts hint */}
       <div className="h-6 bg-zinc-950 border-t border-zinc-800/30 flex items-center justify-center gap-6 text-[10px] text-zinc-600 font-mono shrink-0">
@@ -414,5 +468,5 @@ export function EditorLayout({ folder, initialPages, userId }: EditorLayoutProps
         </span>
       </div>
     </div>
-  )
+  );
 }

@@ -1,28 +1,29 @@
-import Link from 'next/link'
-import { Github, Twitter } from 'lucide-react'
+import Link from "next/link";
+import { Github, Twitter } from "lucide-react";
 
 const footerLinks = {
   product: [
-    { label: 'Features', href: '#features' },
-    { label: 'Pricing', href: '/pricing' },
-    { label: 'Changelog', href: '/changelog' },
-    { label: 'Roadmap', href: '/roadmap' },
+    { label: "Features", href: "#features" },
+    { label: "Download desktop app", href: "/download" },
+    { label: "Pricing", href: "/pricing" },
+    { label: "Changelog", href: "/changelog" },
+    { label: "Roadmap", href: "/roadmap" },
   ],
   resources: [
-    { label: 'Documentation', href: '/docs' },
-    { label: 'Getting Started', href: '/getting-started' },
+    { label: "Documentation", href: "/docs" },
+    { label: "Getting Started", href: "/getting-started" },
   ],
   company: [
-    { label: 'About', href: '/about' },
-    { label: 'Careers', href: '/careers' },
-    { label: 'Contact', href: '/contact' },
+    { label: "About", href: "/about" },
+    { label: "Careers", href: "/careers" },
+    { label: "Contact", href: "/contact" },
   ],
   legal: [
-    { label: 'Privacy', href: '/privacy' },
-    { label: 'Terms', href: '/terms' },
-    { label: 'Security', href: '/security' },
+    { label: "Privacy", href: "/privacy" },
+    { label: "Terms", href: "/terms" },
+    { label: "Security", href: "/security" },
   ],
-}
+};
 
 export function Footer() {
   return (
@@ -134,11 +135,9 @@ export function Footer() {
           <p className="text-sm text-zinc-500">
             © {new Date().getFullYear()} UNIX. All rights reserved.
           </p>
-          <p className="text-sm text-zinc-600">
-            Built with ❤️
-          </p>
+          <p className="text-sm text-zinc-600">Built for writers.</p>
         </div>
       </div>
     </footer>
-  )
+  );
 }

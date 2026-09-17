@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 import {
   Download,
   FileText,
@@ -9,116 +9,140 @@ import {
   FileType,
   X,
   Check,
-} from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
-import { type EditorFile } from './editor-store'
-import { marked } from 'marked'
-import jsPDF from 'jspdf'
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { type EditorFile } from "./editor-store";
+import jsPDF from "jspdf";
+import {
+  manuscriptToHtml,
+  manuscriptToMarkdown,
+  manuscriptToText,
+} from "@/lib/manuscript-serialization";
 
 interface ExportModalProps {
-  isOpen: boolean
-  onClose: () => void
-  file?: EditorFile | null
-  files?: EditorFile[] | null
+  isOpen: boolean;
+  onClose: () => void;
+  file?: EditorFile | null;
+  files?: EditorFile[] | null;
 }
 
-type ExportFormat = 'markdown' | 'txt' | 'html' | 'pdf'
+type ExportFormat = "markdown" | "txt" | "html" | "pdf";
 
 interface FormatOption {
-  id: ExportFormat
-  name: string
-  description: string
-  icon: React.ReactNode
-  extension: string
+  id: ExportFormat;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  extension: string;
 }
 
 const formats: FormatOption[] = [
   {
-    id: 'markdown',
-    name: 'Markdown',
-    description: 'Original markdown format (.md)',
+    id: "markdown",
+    name: "Markdown",
+    description: "Original markdown format (.md)",
     icon: <Code size={20} />,
-    extension: '.md',
+    extension: ".md",
   },
   {
-    id: 'txt',
-    name: 'Plain Text',
-    description: 'Simple text file (.txt)',
+    id: "txt",
+    name: "Plain Text",
+    description: "Simple text file (.txt)",
     icon: <FileText size={20} />,
-    extension: '.txt',
+    extension: ".txt",
   },
   {
-    id: 'html',
-    name: 'HTML',
-    description: 'Web page format (.html)',
+    id: "html",
+    name: "HTML",
+    description: "Web page format (.html)",
     icon: <Globe size={20} />,
-    extension: '.html',
+    extension: ".html",
   },
   {
-    id: 'pdf',
-    name: 'PDF',
-    description: 'Portable document format (.pdf)',
+    id: "pdf",
+    name: "PDF",
+    description: "Portable document format (.pdf)",
     icon: <FileType size={20} />,
-    extension: '.pdf',
+    extension: ".pdf",
   },
-]
+];
 
-export function ExportModal({ isOpen, onClose, file, files }: ExportModalProps) {
-  const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('markdown')
-  const [isExporting, setIsExporting] = useState(false)
+export function ExportModal({
+  isOpen,
+  onClose,
+  file,
+  files,
+}: ExportModalProps) {
+  const [selectedFormat, setSelectedFormat] =
+    useState<ExportFormat>("markdown");
+  const [isExporting, setIsExporting] = useState(false);
 
   // Determine mode: Single file or Bulk (multiple files)
-  const isBulk = !!files && files.length > 0
-  const title = isBulk ? 'Bulk Export' : file?.title || 'Export'
-  const subTitle = isBulk ? `Export all ${files?.length} files` : `Export "${file?.title}"`
+  const isBulk = !!files && files.length > 0;
+  const title = isBulk ? "Bulk Export" : file?.title || "Export";
+  const subTitle = isBulk
+    ? `Export all ${files?.length} files`
+    : `Export "${file?.title}"`;
 
   const handleExport = async () => {
-    if (!file && !files) return
+    if (!file && !files) return;
 
-    setIsExporting(true)
+    setIsExporting(true);
 
     try {
       // Prepare content and filename
-      let content = ''
-      let filename = ''
+      let content = "";
+      let filename = "";
 
       if (isBulk && files) {
-        filename = 'project_export'
-        if (selectedFormat === 'markdown' || selectedFormat === 'txt') {
-          content = files.map(f => `# ${f.title}\n\n${f.content}`).join('\n\n---\n\n')
+        filename = "project_export";
+        if (selectedFormat === "markdown" || selectedFormat === "txt") {
+          content = files
+            .map(
+              (f) =>
+                `# ${f.title}\n\n${selectedFormat === "markdown" ? manuscriptToMarkdown(f.document) : manuscriptToText(f.document)}`,
+            )
+            .join("\n\n---\n\n");
         } else {
           // For HTML/PDF, we might process differently below, but basic text concatenation is a start
-          content = files.map(f => `# ${f.title}\n\n${f.content}`).join('\n\n')
+          content = files
+            .map((f) => `<h1>${f.title}</h1>${manuscriptToHtml(f.document)}`)
+            .join("\n");
         }
       } else if (file) {
-        filename = file.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-        content = file.content
+        filename = file.title.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+        content =
+          selectedFormat === "html"
+            ? manuscriptToHtml(file.document)
+            : selectedFormat === "markdown"
+              ? manuscriptToMarkdown(file.document)
+              : manuscriptToText(file.document);
       }
 
       switch (selectedFormat) {
-        case 'markdown':
-          downloadFile(content, `${filename}.md`, 'text/markdown')
-          break
+        case "markdown":
+          downloadFile(content, `${filename}.md`, "text/markdown");
+          break;
 
-        case 'txt':
+        case "txt":
           // Strip markdown formatting for plain text
           const plainText = content
-            .replace(/#{1,6}\s/g, '') // Remove headers
-            .replace(/\*\*(.+?)\*\*/g, '$1') // Remove bold
-            .replace(/\*(.+?)\*/g, '$1') // Remove italic
-            .replace(/\[(.+?)\]\(.+?\)/g, '$1') // Remove links
-            .replace(/^---\n/gm, '----------------------------------------\n') // Replace separators
-          downloadFile(plainText, `${filename}.txt`, 'text/plain')
-          break
+            .replace(/#{1,6}\s/g, "") // Remove headers
+            .replace(/\*\*(.+?)\*\*/g, "$1") // Remove bold
+            .replace(/\*(.+?)\*/g, "$1") // Remove italic
+            .replace(/\[(.+?)\]\(.+?\)/g, "$1") // Remove links
+            .replace(/^---\n/gm, "----------------------------------------\n"); // Replace separators
+          downloadFile(plainText, `${filename}.txt`, "text/plain");
+          break;
 
-        case 'html':
-          const htmlBody = await marked(content)
+        case "html":
+          const htmlBody = content;
           const fullHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${isBulk ? 'Project Export' : file?.title}</title>
+    <title>${isBulk ? "Project Export" : file?.title}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -161,81 +185,84 @@ export function ExportModal({ isOpen, onClose, file, files }: ExportModalProps) 
 <body>
     ${htmlBody}
 </body>
-</html>`
-          downloadFile(fullHtml, `${filename}.html`, 'text/html')
-          break
+</html>`;
+          downloadFile(fullHtml, `${filename}.html`, "text/html");
+          break;
 
-        case 'pdf':
-          const pdf = new jsPDF()
-          const pageWidth = pdf.internal.pageSize.getWidth()
-          const margin = 20
-          const maxWidth = pageWidth - margin * 2
+        case "pdf":
+          const pdf = new jsPDF();
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const margin = 20;
+          const maxWidth = pageWidth - margin * 2;
 
           // Add title
-          pdf.setFontSize(20)
-          pdf.setFont('helvetica', 'bold')
-          pdf.text(isBulk ? 'Project Export' : file!.title, margin, margin)
+          pdf.setFontSize(20);
+          pdf.setFont("helvetica", "bold");
+          pdf.text(isBulk ? "Project Export" : file!.title, margin, margin);
 
           // Add content
-          pdf.setFontSize(12)
-          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(12);
+          pdf.setFont("helvetica", "normal");
 
           // Simple text wrapping - for bulk, we might want page breaks, but simple split for now
           // If bulk, we could iterate and add pages.
           if (isBulk && files) {
-            let yPos = margin + 15
+            let yPos = margin + 15;
             files.forEach((f, i) => {
               if (i > 0) {
-                pdf.addPage()
-                yPos = margin
+                pdf.addPage();
+                yPos = margin;
               }
-              pdf.setFontSize(16)
-              pdf.setFont('helvetica', 'bold')
-              pdf.text(f.title, margin, yPos)
-              yPos += 10
+              pdf.setFontSize(16);
+              pdf.setFont("helvetica", "bold");
+              pdf.text(f.title, margin, yPos);
+              yPos += 10;
 
-              pdf.setFontSize(12)
-              pdf.setFont('helvetica', 'normal')
-              const lines = pdf.splitTextToSize(f.content, maxWidth)
+              pdf.setFontSize(12);
+              pdf.setFont("helvetica", "normal");
+              const lines = pdf.splitTextToSize(
+                manuscriptToText(f.document),
+                maxWidth,
+              );
               // Note: jsPDF text handling is basic here. For a truly robust PDF export of long content,
               // complex pagination logic is needed. This is a simplified "print" version.
-              pdf.text(lines, margin, yPos)
-            })
+              pdf.text(lines, margin, yPos);
+            });
           } else {
-            const lines = pdf.splitTextToSize(content, maxWidth)
-            pdf.text(lines, margin, margin + 15)
+            const lines = pdf.splitTextToSize(content, maxWidth);
+            pdf.text(lines, margin, margin + 15);
           }
 
-          pdf.save(`${filename}.pdf`)
-          break
+          pdf.save(`${filename}.pdf`);
+          break;
       }
 
       // Close modal after short delay
       setTimeout(() => {
-        setIsExporting(false)
-        onClose()
-      }, 500)
+        setIsExporting(false);
+        onClose();
+      }, 500);
     } catch (error) {
-      console.error('Export failed:', error)
-      setIsExporting(false)
+      console.error("Export failed:", error);
+      setIsExporting(false);
     }
-  }
+  };
 
   const downloadFile = (
     content: string,
     filename: string,
     mimeType: string,
   ) => {
-    const blob = new Blob([content], { type: mimeType })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <AnimatePresence>
@@ -256,7 +283,7 @@ export function ExportModal({ isOpen, onClose, file, files }: ExportModalProps) 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', duration: 0.3 }}
+              transition={{ type: "spring", duration: 0.3 }}
               className="w-full max-w-lg mx-4 pointer-events-auto"
             >
               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
@@ -270,9 +297,7 @@ export function ExportModal({ isOpen, onClose, file, files }: ExportModalProps) 
                       <h2 className="text-lg font-semibold text-white">
                         {title}
                       </h2>
-                      <p className="text-xs text-zinc-500">
-                        {subTitle}
-                      </p>
+                      <p className="text-xs text-zinc-500">{subTitle}</p>
                     </div>
                   </div>
                   <button
@@ -293,26 +318,29 @@ export function ExportModal({ isOpen, onClose, file, files }: ExportModalProps) 
                       <button
                         key={format.id}
                         onClick={() => setSelectedFormat(format.id)}
-                        className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${selectedFormat === format.id
-                            ? 'border-emerald-500 bg-emerald-500/10'
-                            : 'border-zinc-800 hover:border-zinc-700 bg-zinc-950'
-                          }`}
+                        className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                          selectedFormat === format.id
+                            ? "border-emerald-500 bg-emerald-500/10"
+                            : "border-zinc-800 hover:border-zinc-700 bg-zinc-950"
+                        }`}
                       >
                         <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center ${selectedFormat === format.id
-                              ? 'bg-emerald-500/20 text-emerald-400'
-                              : 'bg-zinc-800 text-zinc-500'
-                            }`}
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                            selectedFormat === format.id
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : "bg-zinc-800 text-zinc-500"
+                          }`}
                         >
                           {format.icon}
                         </div>
                         <div className="flex-1 text-left">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`font-medium ${selectedFormat === format.id
-                                  ? 'text-white'
-                                  : 'text-zinc-300'
-                                }`}
+                              className={`font-medium ${
+                                selectedFormat === format.id
+                                  ? "text-white"
+                                  : "text-zinc-300"
+                              }`}
                             >
                               {format.name}
                             </span>
@@ -356,7 +384,7 @@ export function ExportModal({ isOpen, onClose, file, files }: ExportModalProps) 
                             transition={{
                               duration: 1,
                               repeat: Infinity,
-                              ease: 'linear',
+                              ease: "linear",
                             }}
                           >
                             <Download size={16} />
@@ -378,5 +406,5 @@ export function ExportModal({ isOpen, onClose, file, files }: ExportModalProps) 
         </>
       )}
     </AnimatePresence>
-  )
+  );
 }

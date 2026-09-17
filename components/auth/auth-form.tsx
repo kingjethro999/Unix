@@ -1,20 +1,20 @@
-import * as React from 'react'
-import { UseFormReturn, FieldValues, DefaultValues } from 'react-hook-form'
-import { z } from 'zod'
-import { Button } from '@/components/ui/button'
-import { Form } from '@/components/ui/form'
-import { Loader2 } from 'lucide-react'
+import * as React from "react";
+import { UseFormReturn, FieldValues, DefaultValues } from "react-hook-form";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Form } from "@/components/ui/form";
+import { Loader2 } from "lucide-react";
 
 interface AuthFormProps<T extends FieldValues> {
-  schema: z.ZodSchema<T>
-  defaultValues: DefaultValues<T>
-  onSubmit: (data: T, form: UseFormReturn<T>) => void
-  children: (form: UseFormReturn<T>) => React.ReactNode
-  submitText: string
-  loadingText: string
-  isLoading?: boolean
-  className?: string
-  form: UseFormReturn<T>
+  schema: z.ZodSchema<T>;
+  defaultValues: DefaultValues<T>;
+  onSubmit: (data: T, form: UseFormReturn<T>) => void;
+  children: (form: UseFormReturn<T>) => React.ReactNode;
+  submitText: string;
+  loadingText: string;
+  isLoading?: boolean;
+  className?: string;
+  form: UseFormReturn<T>;
 }
 
 export function AuthForm<T extends FieldValues>({
@@ -23,12 +23,12 @@ export function AuthForm<T extends FieldValues>({
   submitText,
   loadingText,
   isLoading = false,
-  className = 'space-y-4',
+  className = "space-y-4",
   form,
 }: AuthFormProps<T>) {
   const handleSubmit = (data: T) => {
-    onSubmit(data, form)
-  }
+    onSubmit(data, form);
+  };
 
   return (
     <Form {...form}>
@@ -53,5 +53,5 @@ export function AuthForm<T extends FieldValues>({
         </Button>
       </form>
     </Form>
-  )
+  );
 }

@@ -1,29 +1,28 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { Menu, X } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
-import { createClient } from '@/lib/supabase/client'
+import Link from "next/link";
+import { Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 
 export function Navbar() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     async function getUser() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      const response = await fetch("/api/session");
+      if (response.ok) setUser((await response.json()).user);
     }
-    getUser()
-  }, [])
+    getUser();
+  }, []);
 
   const navLinks = [
-    { label: 'Features', href: '#features' },
-    { label: 'Testimonials', href: '#testimonials' },
-    { label: 'FAQ', href: '#faq' },
-  ]
+    { label: "Features", href: "#features" },
+    { label: "Download", href: "/download" },
+    { label: "Testimonials", href: "#testimonials" },
+    { label: "FAQ", href: "#faq" },
+  ];
 
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/50 overflow-hidden">
@@ -56,6 +55,12 @@ export function Navbar() {
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center gap-4">
+            <Link
+              href="/download"
+              className="text-sm text-zinc-400 transition-colors hover:text-white"
+            >
+              Download app
+            </Link>
             {user ? (
               <Link
                 href="/create"
@@ -96,7 +101,7 @@ export function Navbar() {
         {mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
+            animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="md:hidden bg-zinc-950 border-b border-zinc-800"
           >
@@ -112,6 +117,13 @@ export function Navbar() {
                 </a>
               ))}
               <div className="pt-4 border-t border-zinc-800 space-y-3">
+                <Link
+                  href="/download"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-zinc-400 hover:text-white transition-colors font-medium"
+                >
+                  Download app
+                </Link>
                 {user ? (
                   <Link
                     href="/create"
@@ -144,5 +156,5 @@ export function Navbar() {
         )}
       </AnimatePresence>
     </nav>
-  )
+  );
 }

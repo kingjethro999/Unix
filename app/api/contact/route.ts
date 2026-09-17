@@ -1,36 +1,36 @@
-'use server'
+"use server";
 
-import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
+import { NextRequest, NextResponse } from "next/server";
+import nodemailer from "nodemailer";
 
 export async function POST(request: NextRequest) {
-    try {
-        const { name, email, subject, message } = await request.json()
+  try {
+    const { name, email, subject, message } = await request.json();
 
-        // Validate required fields
-        if (!name || !email || !subject || !message) {
-            return NextResponse.json(
-                { error: 'All fields are required' },
-                { status: 400 }
-            )
-        }
+    // Validate required fields
+    if (!name || !email || !subject || !message) {
+      return NextResponse.json(
+        { error: "All fields are required" },
+        { status: 400 },
+      );
+    }
 
-        // Create transporter with Gmail SMTP
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.GMAIL_SMTP_USER,
-                pass: process.env.GMAIL_APP_PASSWORD,
-            },
-        })
+    // Create transporter with Gmail SMTP
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_SMTP_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
 
-        // Email content
-        const mailOptions = {
-            from: process.env.GMAIL_SMTP_USER,
-            to: 'jethrojerrybj@gmail.com',
-            replyTo: email,
-            subject: `[UNIX Contact] ${subject}`,
-            html: `
+    // Email content
+    const mailOptions = {
+      from: process.env.GMAIL_SMTP_USER,
+      to: "jethrojerrybj@gmail.com",
+      replyTo: email,
+      subject: `[UNIX Contact] ${subject}`,
+      html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h2 style="color: #8b5cf6;">New Contact Form Submission</h2>
                     <div style="background: #18181b; padding: 20px; border-radius: 12px; color: #fff;">
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
                     </p>
                 </div>
             `,
-            text: `
+      text: `
 New Contact Form Submission
 
 From: ${name}
@@ -59,17 +59,20 @@ ${message}
 ---
 This message was sent from the UNIX contact form.
             `,
-        }
+    };
 
-        // Send email
-        await transporter.sendMail(mailOptions)
+    // Send email
+    await transporter.sendMail(mailOptions);
 
-        return NextResponse.json({ success: true, message: 'Email sent successfully' })
-    } catch (error) {
-        console.error('Error sending email:', error)
-        return NextResponse.json(
-            { error: 'Failed to send email' },
-            { status: 500 }
-        )
-    }
+    return NextResponse.json({
+      success: true,
+      message: "Email sent successfully",
+    });
+  } catch (error) {
+    console.error("Error sending email:", error);
+    return NextResponse.json(
+      { error: "Failed to send email" },
+      { status: 500 },
+    );
+  }
 }

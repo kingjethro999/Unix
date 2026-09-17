@@ -1,40 +1,41 @@
-'use client'
+"use client";
 
-import { useState, useRef, useEffect } from 'react'
-import { FileText, X } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
-import { editorStore } from './editor-store'
+import { useState, useRef, useEffect } from "react";
+import { FileText, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { editorStore } from "./editor-store";
 
 interface NewFileModalProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 export function NewFileModal({ isOpen, onClose }: NewFileModalProps) {
-  const [fileName, setFileName] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [fileName, setFileName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      inputRef.current.focus()
-      setFileName('')
+      inputRef.current.focus();
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = fileName.trim()
+    e.preventDefault();
+    const trimmed = fileName.trim();
     if (trimmed) {
-      editorStore.createFile(trimmed)
-      onClose()
+      editorStore.createFile(trimmed);
+      setFileName("");
+      onClose();
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose()
+    if (e.key === "Escape") {
+      setFileName("");
+      onClose();
     }
-  }
+  };
 
   return (
     <AnimatePresence>
@@ -55,7 +56,7 @@ export function NewFileModal({ isOpen, onClose }: NewFileModalProps) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', duration: 0.3 }}
+              transition={{ type: "spring", duration: 0.3 }}
               className="w-full max-w-md mx-4 pointer-events-auto"
             >
               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
@@ -150,5 +151,5 @@ export function NewFileModal({ isOpen, onClose }: NewFileModalProps) {
         </>
       )}
     </AnimatePresence>
-  )
+  );
 }
