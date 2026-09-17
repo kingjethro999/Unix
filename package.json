@@ -1,6 +1,6 @@
 {
   "name": "unix",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "packageManager": "vlt@1.0.10",
   "scripts": {
@@ -10,10 +10,10 @@
     "build": "next build",
     "desktop:dev": "concurrently --kill-others-on-fail -n web,live,desktop \"next dev\" \"node --env-file=.env scripts/realtime-server.mjs\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "desktop:prepare": "node scripts/prepare-desktop.mjs",
-    "desktop:build": "vlt run desktop:build:linux",
-    "desktop:build:linux": "vlt run build && vlt run desktop:prepare && electron-builder --linux AppImage deb",
-    "desktop:build:windows": "vlt run build && vlt run desktop:prepare && electron-builder --win nsis",
-    "desktop:build:mac": "vlt run build && vlt run desktop:prepare && electron-builder --mac dmg zip",
+    "desktop:build": "next build && node scripts/prepare-desktop.mjs && electron-builder --linux AppImage deb --publish never",
+    "desktop:build:linux": "next build && node scripts/prepare-desktop.mjs && electron-builder --linux AppImage deb --publish never",
+    "desktop:build:windows": "next build && node scripts/prepare-desktop.mjs && electron-builder --win nsis --publish never",
+    "desktop:build:mac": "next build && node scripts/prepare-desktop.mjs && electron-builder --mac dmg zip --publish never",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
