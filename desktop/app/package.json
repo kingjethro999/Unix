@@ -1,0 +1,11 @@
+{
+  "name": "unix-desktop",
+  "version": "1.0.9",
+  "description": "A focused writing workspace for long-form work.",
+  "author": {
+    "name": "King Jethro Jerry",
+    "email": "jethrojerrybj@gmail.com"
+  },
+  "main": "main.cjs",
+  "private": true
+}

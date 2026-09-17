@@ -13,6 +13,11 @@ await cp(join(process.cwd(), "public"), join(standalone, "public"), {
   recursive: true,
 });
 
+const desktopApp = join(process.cwd(), "desktop", "app");
+await mkdir(desktopApp, { recursive: true });
+await cp(join(process.cwd(), "desktop", "main.cjs"), join(desktopApp, "main.cjs"));
+await cp(join(process.cwd(), "desktop", "preload.cjs"), join(desktopApp, "preload.cjs"));
+
 const serverUrl = process.env.UNIX_DESKTOP_URL?.replace(/\/$/, "") || "";
 if (serverUrl && !/^https?:\/\//.test(serverUrl)) {
   throw new Error("UNIX_DESKTOP_URL must start with http:// or https://");

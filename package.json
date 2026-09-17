@@ -1,6 +1,6 @@
 {
   "name": "unix",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "A focused writing workspace for long-form work.",
   "author": {
     "name": "King Jethro Jerry",
@@ -32,12 +32,9 @@
     "appId": "com.unix.writer",
     "productName": "Unix",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "app": "desktop/app"
     },
-    "files": [
-      "desktop/**/*",
-      "package.json"
-    ],
     "extraResources": [
       {
         "from": ".next/standalone",
