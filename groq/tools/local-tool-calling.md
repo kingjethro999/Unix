@@ -16,7 +16,7 @@ The word "local" in local tool calling refers to the fact that the tool executio
 
 With local tool calling, **execution happens in your code**. You control the environment, security, and implementation. You orchestrate the entire loop.
 
-Your App → Makes request to Groq API with tool definitions  
+Your App → Makes request to Groq API with tool definitions
  ↓
 Groq API → Makes request to LLM model with user-provided tool definitions
 ← Model returns tool_calls (or, if no tool calls are needed,

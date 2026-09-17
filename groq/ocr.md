@@ -73,8 +73,8 @@ You can process a maximum of 5 images.
 Use Groq API vision features via:
 
 - **GroqCloud Console Playground**: Use [Llama 4 Scout](https://console.groq.com/playground?model=meta-llama/llama-4-scout-17b-16e-instruct) as the model and upload your image.
-- **Groq API Request:** Call the [chat.completions](https://console.groq.com/docs/text-chat#generating-chat-completions-with-groq-sdk) API endpoint and set the model to  
-  `meta-llama/llama-4-scout-17b-16e-instruct`  
+- **Groq API Request:** Call the [chat.completions](https://console.groq.com/docs/text-chat#generating-chat-completions-with-groq-sdk) API endpoint and set the model to
+  `meta-llama/llama-4-scout-17b-16e-instruct`
   . See code examples below.
 
 ## [How to Pass Images from URLs as Input](#how-to-pass-images-from-urls-as-input)

@@ -101,4 +101,3 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ai_usage_user_created_idx ON ai_usage(user_id, created_at DESC);
-

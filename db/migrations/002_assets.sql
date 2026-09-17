@@ -13,4 +13,3 @@ CREATE TABLE IF NOT EXISTS assets (
 );
 CREATE INDEX IF NOT EXISTS assets_workspace_id_idx ON assets(workspace_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS assets_document_id_idx ON assets(document_id);
-
