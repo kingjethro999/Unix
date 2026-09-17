@@ -19,13 +19,13 @@ jobs:
         include:
           - name: Windows
             runner: windows-latest
-            command: desktop:build:windows
+            target: --win
           - name: macOS
             runner: macos-latest
-            command: desktop:build:mac
+            target: --mac
           - name: Linux
             runner: ubuntu-latest
-            command: desktop:build:linux
+            target: --linux
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,7 +38,7 @@ jobs:
       - name: Build desktop package
         env:
           UNIX_DESKTOP_URL: ${{ vars.UNIX_DESKTOP_URL }}
-        run: vlt run ${{ matrix.command }}
+        run: node scripts/build-desktop.mjs ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
           name: unix-${{ matrix.name }}

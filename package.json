@@ -1,6 +1,6 @@
 {
   "name": "unix",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "A focused writing workspace for long-form work.",
   "author": {
     "name": "King Jethro Jerry",
@@ -31,7 +31,6 @@
   "build": {
     "appId": "com.unix.writer",
     "productName": "Unix",
-    "desktopName": "unix",
     "directories": {
       "output": "release"
     },
@@ -61,8 +60,6 @@
       "category": "Office",
       "maintainer": "King Jethro Jerry <jethrojerrybj@gmail.com>",
       "synopsis": "A focused writing workspace for long-form work.",
-      "desktopName": "unix",
-      "syncDesktopName": true,
       "icon": "desktop/icons/icon.png",
       "artifactName": "Unix-${arch}.${ext}"
     },
