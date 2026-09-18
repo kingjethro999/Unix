@@ -668,14 +668,14 @@ export function EditorWorkspace() {
         )}
       </div>
       <div className="overflow-x-auto border-t border-white/[0.045] [scrollbar-width:thin]">
-        <div className="grid h-6 min-w-[440px] grid-cols-3 items-center px-2.5 text-[10.5px] text-zinc-600">
-          <span>
+        <div className="flex h-6 min-w-max items-center gap-6 whitespace-nowrap px-2.5 text-[10.5px] text-zinc-600">
+          <span className="shrink-0">
             {words} words · {activeFile.content.length} characters
           </span>
-          <span className="justify-self-center">
+          <span className="shrink-0">
             <SaveState status={activeFile.saveStatus} />
           </span>
-          <span className="justify-self-end">
+          <span className="shrink-0">
             Rich document v1 · revision {activeFile.revision}
           </span>
         </div>
