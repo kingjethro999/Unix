@@ -60,10 +60,10 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --generate-notes --title "Unix $TAG"
-          for asset in release/*; do
+          while IFS= read -r -d '' asset; do
             for attempt in 1 2 3 4 5; do
               gh release upload "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --clobber && break
               if [ "$attempt" = 5 ]; then exit 1; fi
               sleep $((attempt * 5))
             done
-          done
+          done < <(find release -maxdepth 1 -type f -print0 | sort -z)
