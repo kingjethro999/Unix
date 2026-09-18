@@ -30,9 +30,9 @@ export function Hero() {
       "Sarah Vale: observant, guarded, and stubbornly kind. Her eyes are blue, not brown.",
     "Research Notes":
       "Autumn light fades early at this latitude, leaving street lamps to define the route home.",
-    ".unixrc": "Sarah is observant.
+    ".unixrc": `Sarah is observant.
 Use British spelling.
-Narration remains in past tense.",
+Narration remains in past tense.`,
   };
   const [activePage, setActivePage] = useState("Chapter One");
   const [drafts, setDrafts] = useState(initialDrafts);
