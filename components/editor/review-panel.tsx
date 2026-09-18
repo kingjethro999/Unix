@@ -118,7 +118,7 @@ export function ReviewPanel() {
   const replies = (id: string) =>
     comments.filter((comment) => comment.parent_id === id);
   return (
-    <div className="h-full overflow-y-auto bg-zinc-950 p-5">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-zinc-950 p-5">
       <div className="flex items-center gap-2">
         <MessageSquare size={16} className="text-cyan-400" />
         <h2 className="text-sm font-semibold text-zinc-100">Review</h2>

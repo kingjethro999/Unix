@@ -82,7 +82,9 @@ export function AIChatSidebar() {
   const [isOnline, setIsOnline] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
-  const [mode, setMode] = useState<"ask" | "research">("ask");
+  const [mode, setMode] = useState<"auto" | "write" | "ask" | "research">(
+    "auto",
+  );
   const [conversationName, setConversationName] = useState("New conversation");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -412,9 +414,11 @@ export function AIChatSidebar() {
             : null,
           folderId: editorState.workspaceId,
           conversationId,
+          mode,
           capability:
             mode === "research" ||
-            /^(research\s*:|find sources|look up|research\b)/i.test(content)
+            (mode === "auto" &&
+              /^(research\s*:|find sources|look up|research\b)/i.test(content))
               ? "research"
               : "fast",
         }),
@@ -939,9 +943,15 @@ export function AIChatSidebar() {
                 }}
                 rows={1}
                 placeholder={
-                  editorState.activeSelection
-                    ? "Ask about the selected passage"
-                    : "Ask Unix about your writing"
+                  mode === "write"
+                    ? editorState.activeSelection
+                      ? "Write an edit for this selection"
+                      : "Tell Unix what to write"
+                    : mode === "research"
+                      ? "Research a question"
+                      : mode === "ask"
+                        ? "Ask Unix anything"
+                        : "Ask, write, or research"
                 }
                 className="block min-h-[54px] max-h-44 w-full resize-none overflow-y-auto bg-transparent px-3.5 pb-10 pt-3 text-[13px] leading-[1.55] text-zinc-100 outline-none placeholder:text-zinc-600"
               />
@@ -962,7 +972,7 @@ export function AIChatSidebar() {
                     type="button"
                     className="flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
                   >
-                    {mode === "research" ? "Research" : "Ask"}
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
                     <ChevronDown size={13} />
                   </button>
                 </DropdownMenuTrigger>
@@ -970,6 +980,12 @@ export function AIChatSidebar() {
                   align="start"
                   className="border-white/[0.08] bg-[#1b1b1e] p-1 text-zinc-300 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
                 >
+                  <DropdownMenuItem onSelect={() => setMode("auto")}>
+                    Auto
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setMode("write")}>
+                    Write
+                  </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setMode("ask")}>
                     Ask
                   </DropdownMenuItem>

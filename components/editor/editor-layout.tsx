@@ -418,7 +418,7 @@ export function EditorLayout({
         open={workspaceTool !== null}
         onOpenChange={(open) => !open && setWorkspaceTool(null)}
       >
-        <DialogContent className="h-[min(760px,88vh)] max-w-3xl overflow-hidden border-zinc-800 bg-zinc-950 p-0">
+        <DialogContent className="flex h-[min(760px,88vh)] max-w-3xl flex-col overflow-hidden border-zinc-800 bg-zinc-950 p-0">
           <DialogTitle className="sr-only">Workspace tools</DialogTitle>
           {workspaceTool === "review" ? (
             <ReviewPanel />

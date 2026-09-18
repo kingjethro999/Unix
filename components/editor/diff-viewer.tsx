@@ -41,7 +41,7 @@ export function DiffViewer({
   }, [changes]);
 
   return (
-    <div className="flex flex-col h-full border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-zinc-800 bg-zinc-900/50">
         <div>
@@ -87,13 +87,13 @@ export function DiffViewer({
       </div>
 
       {/* Side-by-side diff view */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Original (left) */}
         <div className="flex-1 border-r border-zinc-800">
           <div className="bg-zinc-900/30 p-2 border-b border-zinc-800">
             <h4 className="text-xs font-medium text-zinc-400">Original</h4>
           </div>
-          <ScrollArea className="h-[calc(100%-32px)]">
+          <ScrollArea className="h-[calc(100%_-_32px)]">
             <div className="font-mono text-xs p-2">
               {changes.map((change, index) => {
                 if (change.added) return null; // Skip added lines in original view
@@ -131,7 +131,7 @@ export function DiffViewer({
           <div className="bg-zinc-900/30 p-2 border-b border-zinc-800">
             <h4 className="text-xs font-medium text-zinc-400">Modified</h4>
           </div>
-          <ScrollArea className="h-[calc(100%-32px)]">
+          <ScrollArea className="h-[calc(100%_-_32px)]">
             <div className="font-mono text-xs p-2">
               {changes.map((change, index) => {
                 if (change.removed) return null; // Skip removed lines in modified view
