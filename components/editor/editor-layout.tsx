@@ -81,22 +81,22 @@ function ResizeHandle({ side, onResize }: ResizeHandleProps) {
     <div
       onMouseDown={handleMouseDown}
       className={cn(
-        "w-1 cursor-col-resize group relative z-10",
-        "hover:bg-cyan-500/30 transition-colors",
-        isDragging && "bg-cyan-500/50",
+        "group relative z-10 w-px cursor-col-resize bg-transparent transition-colors",
+        "hover:bg-white/[0.15]",
+        isDragging && "bg-white/[0.18]",
       )}
     >
       <div
         className={cn(
-          "absolute inset-y-0 w-4 -translate-x-1/2",
+          "absolute -inset-x-1 inset-y-0",
           "flex items-center justify-center",
         )}
       >
         <div
           className={cn(
-            "w-0.5 h-8 rounded-full transition-all",
-            "bg-zinc-700 group-hover:bg-cyan-400",
-            isDragging && "bg-cyan-400 h-12",
+            "h-8 w-px transition-all",
+            "bg-transparent group-hover:bg-white/[0.18]",
+            isDragging && "h-12 bg-white/[0.22]",
           )}
         />
       </div>
@@ -187,8 +187,8 @@ export function EditorLayout({
         e.preventDefault();
         editorStore.toggleLeftSidebar();
       }
-      // Cmd/Ctrl + J or Cmd/Ctrl + K: Toggle right sidebar
-      if ((e.metaKey || e.ctrlKey) && (e.key === "j" || e.key === "k")) {
+      // Cmd/Ctrl + J: Toggle the sidebar. Cmd/Ctrl + K belongs to inline AI.
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
         e.preventDefault();
         editorStore.toggleRightSidebar();
       }
@@ -246,7 +246,7 @@ export function EditorLayout({
   );
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-zinc-950 text-white overflow-hidden">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#0e0e10] text-zinc-200">
       <ExportDialog open={isExportOpen} onOpenChange={setIsExportOpen} />
       <ShareModal
         isOpen={isShareOpen}
@@ -255,11 +255,11 @@ export function EditorLayout({
       />
 
       {/* Top bar */}
-      <div className="h-12 bg-zinc-950 border-b border-zinc-800/50 flex items-center justify-between px-4 shrink-0">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-white/[0.055] bg-[#111113] px-2.5">
         <div className="flex items-center gap-2">
           <button
             onClick={() => editorStore.toggleLeftSidebar()}
-            className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-zinc-300"
             title="Toggle sidebar (⌘B)"
           >
             {layout.leftSidebarVisible ? (
@@ -268,13 +268,13 @@ export function EditorLayout({
               <PanelLeftOpen size={18} />
             )}
           </button>
-          <div className="h-4 w-px bg-zinc-800" />
-          <span className="text-xs text-zinc-600 font-mono">
+          <div className="h-4 w-px bg-white/[0.06]" />
+          <span className="text-[11px] text-zinc-500">
             <Link href="/">Unix Editor</Link>
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="ml-2 rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200">
+              <button className="ml-1 flex h-7 items-center rounded-md px-2 text-[11px] text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-zinc-200">
                 Workspace
               </button>
             </DropdownMenuTrigger>
@@ -298,7 +298,7 @@ export function EditorLayout({
             onClick={() => activeFile && editorStore.undo(activeFile.id)}
             disabled={!historyInfo.canUndo}
             className={cn(
-              "p-2 rounded-lg transition-colors",
+              "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
               historyInfo.canUndo
                 ? "hover:bg-white/5 text-zinc-400 hover:text-zinc-200"
                 : "text-zinc-700 cursor-not-allowed",
@@ -311,7 +311,7 @@ export function EditorLayout({
             onClick={() => activeFile && editorStore.redo(activeFile.id)}
             disabled={!historyInfo.canRedo}
             className={cn(
-              "p-2 rounded-lg transition-colors",
+              "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
               historyInfo.canRedo
                 ? "hover:bg-white/5 text-zinc-400 hover:text-zinc-200"
                 : "text-zinc-700 cursor-not-allowed",
@@ -321,11 +321,11 @@ export function EditorLayout({
             <Redo2 size={16} />
           </button>
 
-          <div className="h-4 w-px bg-zinc-800 mx-2" />
+          <div className="mx-1 h-4 w-px bg-white/[0.06]" />
 
           <button
             onClick={() => setIsExportOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg text-xs text-zinc-300 transition-colors"
+            className="flex h-7 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.035] px-2 text-[11px] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-200"
             title="Export manuscript"
           >
             <Download size={14} />
@@ -334,7 +334,7 @@ export function EditorLayout({
 
           <button
             onClick={() => setIsShareOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 rounded-lg text-xs transition-colors"
+            className="flex h-7 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.035] px-2 text-[11px] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-200"
             title="Share project"
           >
             <Share2 size={14} />
@@ -343,13 +343,13 @@ export function EditorLayout({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="hidden md:flex items-center gap-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-500">
+          <div className="hidden h-7 items-center gap-1 rounded-md border border-white/[0.06] bg-white/[0.025] px-2 text-[10.5px] text-zinc-600 md:flex">
             <Command size={12} />
             <span>K</span>
           </div>
           <button
             onClick={() => editorStore.toggleRightSidebar()}
-            className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-zinc-300"
             title="Toggle AI chat (⌘J)"
           >
             {layout.rightSidebarVisible ? (
@@ -435,33 +435,33 @@ export function EditorLayout({
       </Dialog>
 
       {/* Keyboard shortcuts hint */}
-      <div className="h-6 bg-zinc-950 border-t border-zinc-800/30 flex items-center justify-center gap-6 text-[10px] text-zinc-600 font-mono shrink-0">
+      <div className="flex h-6 shrink-0 items-center justify-center gap-6 border-t border-white/[0.045] bg-[#111113] text-[10px] text-zinc-600">
         <span className="flex items-center gap-1">
-          <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
+          <kbd className="rounded border border-white/[0.06] bg-white/[0.025] px-1 py-0.5 text-[9px]">
             ⌘B
           </kbd>
           <span className="hidden sm:inline">Files</span>
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
+          <kbd className="rounded border border-white/[0.06] bg-white/[0.025] px-1 py-0.5 text-[9px]">
             ⌘Z
           </kbd>
           <span className="hidden sm:inline">Undo</span>
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
+          <kbd className="rounded border border-white/[0.06] bg-white/[0.025] px-1 py-0.5 text-[9px]">
             ⌘J
           </kbd>
           <span className="hidden sm:inline">AI Chat</span>
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
+          <kbd className="rounded border border-white/[0.06] bg-white/[0.025] px-1 py-0.5 text-[9px]">
             ⌘W
           </kbd>
           <span className="hidden sm:inline">Close Tab</span>
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px]">
+          <kbd className="rounded border border-white/[0.06] bg-white/[0.025] px-1 py-0.5 text-[9px]">
             ⌘1-9
           </kbd>
           <span className="hidden sm:inline">Switch Tab</span>

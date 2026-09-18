@@ -3,17 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
+  ArrowUp,
   History,
   FileText,
   ImagePlus,
   MessageSquare,
   ScanEye,
-  Send,
   Sparkles,
   X,
   Paperclip,
   Plus,
   MoreHorizontal,
+  ChevronDown,
 } from "lucide-react";
 import { marked } from "marked";
 import DOMPurify from "isomorphic-dompurify";
@@ -72,11 +73,13 @@ export function AIChatSidebar() {
   const [isOnline, setIsOnline] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [mode, setMode] = useState<"ask" | "research">("ask");
   const [conversationName, setConversationName] = useState("New conversation");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const hasStartedChatRef = useRef(false);
 
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine);
@@ -116,7 +119,7 @@ export function AIChatSidebar() {
     );
   }
 
-  async function loadConversation(id: string | null) {
+  async function loadConversation(id: string | null, preserveActive = false) {
     if (!editorState.workspaceId) return;
     const params = new URLSearchParams({
       workspaceId: editorState.workspaceId,
@@ -126,7 +129,7 @@ export function AIChatSidebar() {
     if (!response.ok) return;
     const data = await response.json();
     setConversations(data.conversations || []);
-    hydrateMessages(data);
+    if (!preserveActive || !hasStartedChatRef.current) hydrateMessages(data);
     if (id) {
       const conversation = (data.conversations || []).find(
         (item: Conversation) => item.id === id,
@@ -141,7 +144,8 @@ export function AIChatSidebar() {
     setConversationId(null);
     setConversationName("New conversation");
     setMessages([]);
-    void loadConversation(null).catch(() => {
+    hasStartedChatRef.current = false;
+    void loadConversation(null, true).catch(() => {
       if (!cancelled) setConversations([]);
     });
     return () => {
@@ -269,6 +273,7 @@ export function AIChatSidebar() {
       timestamp: new Date(),
     };
     const requestMessages = [...messages, userMessage];
+    hasStartedChatRef.current = true;
     const requestSelection = editorStore.getState().activeSelection;
     setMessages(requestMessages);
     setInput("");
@@ -307,11 +312,11 @@ export function AIChatSidebar() {
           activeSelection: requestSelection,
           folderId: editorState.workspaceId,
           conversationId,
-          capability: /^(research\s*:|find sources|look up|research\b)/i.test(
-            content,
-          )
-            ? "research"
-            : "fast",
+          capability:
+            mode === "research" ||
+            /^(research\s*:|find sources|look up|research\b)/i.test(content)
+              ? "research"
+              : "fast",
         }),
       });
       const data = await response.json().catch(() => null);
@@ -324,7 +329,7 @@ export function AIChatSidebar() {
         setConversationName((current) =>
           current === "New conversation" ? content.slice(0, 72) : current,
         );
-        void loadConversation(null);
+        void loadConversation(null, true);
       }
       if (data.type === "proposal") {
         const current = editorStore.getState().activeSelection;
@@ -401,13 +406,18 @@ export function AIChatSidebar() {
     }
   }
 
+  const pendingChanges = editorStore.getReviewingFilesCount();
+
   return (
-    <div className="h-full flex flex-col border-l border-zinc-800/70 bg-zinc-950">
-      <header className="flex h-10 shrink-0 items-center border-b border-zinc-800/70 px-3">
-        <span className="min-w-0 flex-1 truncate text-xs font-medium text-zinc-200">
-          {conversationName}
+    <aside className="flex h-full min-w-0 flex-col overflow-hidden border-l border-white/[0.055] bg-[#111113] text-zinc-200">
+      <header className="flex h-10 shrink-0 items-center justify-between border-b border-white/[0.055] px-2.5">
+        <span
+          title={conversationName}
+          className="min-w-0 truncate text-[12px] font-medium tracking-[-0.01em] text-zinc-300"
+        >
+          Agent
         </span>
-        <div className="flex items-center gap-0.5 text-zinc-500">
+        <div className="flex shrink-0 items-center gap-0.5 text-zinc-500">
           <button
             type="button"
             title="New conversation"
@@ -416,9 +426,10 @@ export function AIChatSidebar() {
               setMessages([]);
               setConversationId(null);
               setConversationName("New conversation");
+              hasStartedChatRef.current = false;
               setInput("");
             }}
-            className="rounded p-1.5 hover:bg-zinc-800 hover:text-zinc-200"
+            className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-white/[0.05] hover:text-zinc-300"
           >
             <Plus size={15} />
           </button>
@@ -428,20 +439,21 @@ export function AIChatSidebar() {
                 type="button"
                 title="Conversation history"
                 aria-label="Conversation history"
-                className="rounded p-1.5 hover:bg-zinc-800 hover:text-zinc-200"
+                className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-white/[0.05] hover:text-zinc-300"
               >
                 <History size={15} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-64 border-zinc-700 bg-zinc-900"
+              className="w-64 border-white/[0.08] bg-[#1b1b1e] p-1 text-zinc-300 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
             >
               <DropdownMenuItem
                 onSelect={() => {
                   setMessages([]);
                   setConversationId(null);
                   setConversationName("New conversation");
+                  hasStartedChatRef.current = false;
                 }}
               >
                 New conversation
@@ -472,14 +484,14 @@ export function AIChatSidebar() {
                 type="button"
                 title="Chat settings"
                 aria-label="Chat settings"
-                className="rounded p-1.5 hover:bg-zinc-800 hover:text-zinc-200"
+                className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-white/[0.05] hover:text-zinc-300"
               >
                 <MoreHorizontal size={16} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-56 border-zinc-700 bg-zinc-900"
+              className="w-56 border-white/[0.08] bg-[#1b1b1e] p-1 text-zinc-300 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
             >
               <DropdownMenuItem onSelect={() => setMessages([])}>
                 Clear this conversation
@@ -491,120 +503,122 @@ export function AIChatSidebar() {
           </DropdownMenu>
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4">
-        {!messages.length && (
-          <div className="py-10 text-center text-zinc-500">
-            <MessageSquare size={22} className="mx-auto mb-3" />
-            <p className="text-sm">
-              Ask about your draft, or select a passage for a reviewable edit.
-            </p>
-          </div>
-        )}
-        {messages.map((message) => (
-          <article
-            key={message.id}
-            className={cn(
-              "flex gap-2",
-              message.role === "user" && "justify-end",
-            )}
-          >
-            <div
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[720px] space-y-4 px-3 py-3">
+          {!messages.length && (
+            <div className="py-10 text-center text-zinc-500">
+              <MessageSquare size={18} className="mx-auto mb-2" />
+              <p className="mx-auto max-w-[220px] text-[12px] leading-5">
+                Ask about your draft, or select a passage for a reviewable edit.
+              </p>
+            </div>
+          )}
+          {messages.map((message) => (
+            <article
+              key={message.id}
               className={cn(
-                "max-w-full text-sm",
-                message.role === "user" &&
-                  "max-w-[88%] rounded-xl bg-cyan-700 px-3 py-2 text-white",
+                "flex gap-2",
+                message.role === "user" && "justify-end",
               )}
             >
-              {!!message.attachments?.length && (
-                <div className="mb-2 flex flex-wrap gap-1">
-                  {message.attachments.map((attachment) => (
-                    <span
-                      key={attachment.id}
-                      className="inline-flex items-center gap-1 rounded bg-zinc-800 px-2 py-1 text-xs"
-                    >
-                      <FileText size={11} />
-                      {attachment.title}
-                    </span>
-                  ))}
-                </div>
-              )}
               <div
-                className="prose prose-invert prose-p:my-1 prose-p:text-sm max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(
-                    marked.parse(message.content || "") as string,
-                  ),
-                }}
-              />
-              {message.image && (
-                <div className="mt-3 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
-                  <NextImage
-                    src={message.image.url}
-                    alt={message.image.alt}
-                    width={1024}
-                    height={768}
-                    unoptimized
-                    className="w-full h-auto"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      activeFile &&
-                      editorStore.insertImage(
-                        activeFile.id,
-                        message.image!.url,
-                        message.image!.alt,
-                      )
-                    }
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-cyan-300 hover:bg-zinc-800"
-                  >
-                    <ImagePlus size={14} />
-                    Insert in document
-                  </button>
-                </div>
-              )}
-              {message.proposalFileId &&
-                editorState.files.find(
-                  (file) => file.id === message.proposalFileId,
-                )?.pendingEdit && (
-                  <div className="mt-3 flex gap-2 border-t border-zinc-800 pt-2">
+                className={cn(
+                  "max-w-full text-[12.5px] leading-[1.65] text-zinc-300",
+                  message.role === "user" &&
+                    "max-w-[92%] rounded-xl border border-white/[0.055] bg-white/[0.04] px-3 py-2.5 text-zinc-300",
+                )}
+              >
+                {!!message.attachments?.length && (
+                  <div className="mb-2 flex flex-wrap gap-1">
+                    {message.attachments.map((attachment) => (
+                      <span
+                        key={attachment.id}
+                        className="inline-flex items-center gap-1 rounded bg-zinc-800 px-2 py-1 text-xs"
+                      >
+                        <FileText size={11} />
+                        {attachment.title}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div
+                  className="prose prose-invert prose-p:my-0 prose-p:text-[12.5px] prose-p:leading-[1.65] prose-strong:text-zinc-100 max-w-none"
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(
+                      marked.parse(message.content || "") as string,
+                    ),
+                  }}
+                />
+                {message.image && (
+                  <div className="mt-3 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
+                    <NextImage
+                      src={message.image.url}
+                      alt={message.image.alt}
+                      width={1024}
+                      height={768}
+                      unoptimized
+                      className="w-full h-auto"
+                    />
                     <button
                       type="button"
                       onClick={() =>
-                        editorStore.acceptChange(message.proposalFileId!)
+                        activeFile &&
+                        editorStore.insertImage(
+                          activeFile.id,
+                          message.image!.url,
+                          message.image!.alt,
+                        )
                       }
-                      className="flex-1 flex items-center justify-center gap-1 rounded bg-emerald-500/10 py-2 text-xs text-emerald-400"
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-cyan-300 hover:bg-zinc-800"
                     >
-                      <Check size={12} />
-                      Accept
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        editorStore.rejectChange(message.proposalFileId!)
-                      }
-                      className="flex-1 flex items-center justify-center gap-1 rounded bg-red-500/10 py-2 text-xs text-red-400"
-                    >
-                      <X size={12} />
-                      Reject
+                      <ImagePlus size={14} />
+                      Insert in document
                     </button>
                   </div>
                 )}
+                {message.proposalFileId &&
+                  editorState.files.find(
+                    (file) => file.id === message.proposalFileId,
+                  )?.pendingEdit && (
+                    <div className="mt-3 flex gap-2 border-t border-zinc-800 pt-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          editorStore.acceptChange(message.proposalFileId!)
+                        }
+                        className="flex-1 flex items-center justify-center gap-1 rounded bg-emerald-500/10 py-2 text-xs text-emerald-400"
+                      >
+                        <Check size={12} />
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          editorStore.rejectChange(message.proposalFileId!)
+                        }
+                        className="flex-1 flex items-center justify-center gap-1 rounded bg-red-500/10 py-2 text-xs text-red-400"
+                      >
+                        <X size={12} />
+                        Reject
+                      </button>
+                    </div>
+                  )}
+              </div>
+            </article>
+          ))}
+          {isWorking && (
+            <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+              <Sparkles size={13} className="animate-pulse" />
+              Working
             </div>
-          </article>
-        ))}
-        {isWorking && (
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <Sparkles size={13} className="animate-pulse" />
-            Working
-          </div>
-        )}
-        <div ref={endRef} />
+          )}
+          <div ref={endRef} />
+        </div>
       </div>
       <div
         className={cn(
-          "border-t border-zinc-800/50 px-5 py-4",
-          isDragOver && "bg-cyan-500/5",
+          "shrink-0 border-t border-white/[0.045] bg-[#111113]/95 pt-1.5 backdrop-blur-xl",
+          isDragOver && "bg-white/[0.025]",
         )}
         onDragOver={(event) => {
           event.preventDefault();
@@ -613,158 +627,192 @@ export function AIChatSidebar() {
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleContextDrop}
       >
-        {editorState.activeSelection && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2">
-            <ScanEye size={12} className="text-cyan-400" />
-            <span className="truncate text-xs text-cyan-300">
-              Selected: {editorState.activeSelection.text.slice(0, 45)}
-            </span>
-            <button
-              type="button"
-              aria-label="Clear selection context"
-              onClick={() => editorStore.setSelection(null)}
-              className="ml-auto"
-            >
-              <X size={12} />
-            </button>
-          </div>
-        )}
-        {!!attachments.length && (
-          <div className="mb-2 flex flex-wrap gap-1">
-            {attachments.map((attachment) => (
-              <span
-                key={attachment.id}
-                className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-2 py-1 text-xs text-cyan-300"
-              >
-                <FileText size={11} />
-                {attachment.title}
+        <div className="px-2 pb-2">
+          {editorState.activeSelection && (
+            <div className="mb-1.5 flex items-center gap-1.5 px-1">
+              <div className="group flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.035] px-2 py-1 text-[11px] text-zinc-400">
+                <ScanEye size={12} className="shrink-0 text-zinc-500" />
+                <span className="truncate">
+                  Selected: {editorState.activeSelection.text.slice(0, 45)}
+                </span>
                 <button
                   type="button"
-                  aria-label={`Remove ${attachment.title}`}
-                  onClick={() =>
-                    setAttachments((items) =>
-                      items.filter((item) => item.id !== attachment.id),
-                    )
-                  }
+                  aria-label="Clear selection context"
+                  onClick={() => editorStore.setSelection(null)}
+                  className="ml-auto rounded-sm p-0.5 text-zinc-600 transition hover:bg-white/[0.08] hover:text-zinc-300"
                 >
-                  <X size={11} />
+                  <X size={12} />
                 </button>
-              </span>
-            ))}
-          </div>
-        )}
-        {!messages.length && !input && !isWorking && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {starterPrompts.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                onClick={() => void send(prompt)}
-                className="rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-1.5 text-[11px] text-zinc-400 transition-colors hover:border-zinc-700 hover:text-zinc-200"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        )}
-        {editorStore.getReviewingFilesCount() > 0 && (
-          <button
-            type="button"
-            onClick={() => editorStore.toggleRightSidebar()}
-            className="mb-2 flex w-full items-center justify-between rounded-md border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-xs text-zinc-300 hover:border-zinc-700"
-          >
-            <span>Review pending changes</span>
-            <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-cyan-300">
-              {editorStore.getReviewingFilesCount()}
-            </span>
-          </button>
-        )}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-1.5 shadow-sm">
-          <div className="flex items-end gap-2">
-            <button
-              type="button"
-              aria-label="Attach a document"
-              title="Attach a document"
-              onClick={() => setShowPicker((value) => !value)}
-              className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-800 hover:text-cyan-300"
-            >
-              <Paperclip size={16} />
-            </button>
-            {showPicker && (
-              <Select
-                onValueChange={(value) => {
-                  const file = editorState.files.find(
-                    (item) => item.id === value,
-                  );
-                  if (file && !attachments.some((item) => item.id === file.id))
-                    setAttachments((items) => [
-                      ...items,
-                      { id: file.id, title: file.title },
-                    ]);
-                  setShowPicker(false);
-                }}
-              >
-                <SelectTrigger
-                  aria-label="Choose a document to attach"
-                  className="max-w-[150px]"
+              </div>
+            </div>
+          )}
+          {!!attachments.length && (
+            <div className="mb-1.5 flex flex-wrap gap-1 px-1">
+              {attachments.map((attachment) => (
+                <span
+                  key={attachment.id}
+                  className="group inline-flex max-w-[220px] items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.035] px-2 py-1 text-[11px] text-zinc-400"
                 >
-                  <SelectValue placeholder="Choose document" />
-                </SelectTrigger>
-                <SelectContent>
-                  {editorState.files
-                    .filter((file) => file.id !== activeFile?.id)
-                    .map((file) => (
-                      <SelectItem key={file.id} value={file.id}>
-                        {file.title}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            )}
-            <textarea
-              ref={composerRef}
-              value={input}
-              onChange={(event) => {
-                setInput(event.target.value);
-                const element = event.currentTarget;
-                element.style.height = "0px";
-                element.style.height = `${Math.min(element.scrollHeight, 180)}px`;
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void send();
-                }
-              }}
-              rows={1}
-              placeholder={
-                editorState.activeSelection
-                  ? "Ask about the selected passage"
-                  : "Ask Unix about your writing"
-              }
-              className="min-h-[38px] max-h-[180px] flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-zinc-200 outline-none"
-            />
+                  <FileText size={11} />
+                  {attachment.title}
+                  <button
+                    type="button"
+                    aria-label={`Remove ${attachment.title}`}
+                    onClick={() =>
+                      setAttachments((items) =>
+                        items.filter((item) => item.id !== attachment.id),
+                      )
+                    }
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {!messages.length && !input && !isWorking && (
+            <div className="mb-1.5 flex flex-wrap gap-1 px-1">
+              {starterPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => void send(prompt)}
+                  className="rounded-md px-2 py-1 text-[10.5px] text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-zinc-300"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          )}
+          {pendingChanges > 0 && (
             <button
               type="button"
-              aria-label="Send message"
-              disabled={isWorking || (!input.trim() && !attachments.length)}
-              onClick={() => void send()}
-              className="rounded-lg bg-cyan-600 p-2.5 text-white disabled:bg-zinc-800 disabled:text-zinc-600"
+              onClick={() => editorStore.toggleRightSidebar()}
+              className="group mb-1.5 flex h-8 w-full items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.025] px-2.5 text-[11px] text-zinc-400 transition hover:border-white/[0.1] hover:bg-white/[0.045]"
             >
-              <Send size={16} />
+              <span>
+                {pendingChanges}{" "}
+                {pendingChanges === 1 ? "suggested edit" : "suggested edits"}
+              </span>
+              <span className="text-zinc-500 transition group-hover:text-zinc-200">
+                Review
+              </span>
             </button>
+          )}
+          <div className="relative overflow-hidden rounded-xl border border-white/[0.09] bg-[#18181b] shadow-[0_1px_2px_rgba(0,0,0,0.25),0_8px_30px_rgba(0,0,0,0.16)] transition focus-within:border-white/[0.15] focus-within:bg-[#1b1b1e]">
+            <div className="flex items-start">
+              <button
+                type="button"
+                aria-label="Attach a document"
+                title="Attach a document"
+                onClick={() => setShowPicker((value) => !value)}
+                className="absolute bottom-3 right-11 z-10 flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-300"
+              >
+                <Paperclip size={16} />
+              </button>
+              {showPicker && (
+                <Select
+                  onValueChange={(value) => {
+                    const file = editorState.files.find(
+                      (item) => item.id === value,
+                    );
+                    if (
+                      file &&
+                      !attachments.some((item) => item.id === file.id)
+                    )
+                      setAttachments((items) => [
+                        ...items,
+                        { id: file.id, title: file.title },
+                      ]);
+                    setShowPicker(false);
+                  }}
+                >
+                  <SelectTrigger
+                    aria-label="Choose a document to attach"
+                    className="absolute bottom-10 left-2 z-20 max-w-[180px] border-white/[0.08] bg-[#1b1b1e] text-xs"
+                  >
+                    <SelectValue placeholder="Choose document" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editorState.files
+                      .filter((file) => file.id !== activeFile?.id)
+                      .map((file) => (
+                        <SelectItem key={file.id} value={file.id}>
+                          {file.title}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <textarea
+                ref={composerRef}
+                value={input}
+                onChange={(event) => {
+                  setInput(event.target.value);
+                  const element = event.currentTarget;
+                  element.style.height = "0px";
+                  element.style.height = `${Math.min(element.scrollHeight, 180)}px`;
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void send();
+                  }
+                }}
+                rows={1}
+                placeholder={
+                  editorState.activeSelection
+                    ? "Ask about the selected passage"
+                    : "Ask Unix about your writing"
+                }
+                className="block min-h-[54px] max-h-44 w-full resize-none overflow-y-auto bg-transparent px-3.5 pb-10 pt-3 text-[13px] leading-[1.55] text-zinc-100 outline-none placeholder:text-zinc-600"
+              />
+              <button
+                type="button"
+                aria-label="Send message"
+                disabled={isWorking || (!input.trim() && !attachments.length)}
+                onClick={() => void send()}
+                className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-100 text-zinc-950 transition hover:bg-white disabled:cursor-default disabled:bg-white/[0.07] disabled:text-zinc-600"
+              >
+                <ArrowUp size={14} strokeWidth={2.4} />
+              </button>
+            </div>
+            <div className="flex h-9 items-center gap-0.5 px-2 pb-1.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
+                  >
+                    {mode === "research" ? "Research" : "Ask"}
+                    <ChevronDown size={13} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="border-white/[0.08] bg-[#1b1b1e] p-1 text-zinc-300 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
+                >
+                  <DropdownMenuItem onSelect={() => setMode("ask")}>
+                    Ask
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setMode("research")}>
+                    Research
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <span className="h-4 w-px bg-white/[0.06]" />
+              <span className="truncate px-2 text-[11px] text-zinc-500">
+                {activeFile?.title || "Current document"}
+              </span>
+            </div>
           </div>
+          {!isOnline && (
+            <p className="mt-2 text-[11px] text-amber-400">
+              Offline: drafts save locally and will sync when you reconnect.
+            </p>
+          )}
         </div>
-        {!isOnline && (
-          <p className="mt-2 text-[11px] text-amber-400">
-            Offline: drafts save locally and will sync when you reconnect.
-          </p>
-        )}
-        <p className="mt-2 px-1 text-[10px] text-zinc-600">
-          Attach context or drop a document here. Enter sends · Shift+Enter adds
-          a line.
-        </p>
       </div>
-    </div>
+    </aside>
   );
 }

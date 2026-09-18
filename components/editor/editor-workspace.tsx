@@ -24,7 +24,12 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useActiveFile, editorStore, type EditProposal } from "./editor-store";
+import {
+  useActiveFile,
+  editorStore,
+  type EditProposal,
+  type EditorSelection,
+} from "./editor-store";
 import { validateTextProposal } from "@/lib/edit-proposal";
 import { FindReplace } from "./find-replace";
 import {
@@ -39,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { InlineAIComposer } from "./inline-ai-composer";
 
 const writingFonts = [
   { value: "Georgia, 'Times New Roman', serif", label: "Georgia" },
@@ -84,6 +90,14 @@ export function EditorWorkspace() {
   const activeFile = useActiveFile();
   const [editorTick, setEditorTick] = useState(0);
   const [showFind, setShowFind] = useState(false);
+  const [inlineRequest, setInlineRequest] = useState<{
+    selection: EditorSelection;
+    position: { left: number; top: number };
+  } | null>(null);
+  const [inlinePrompt, setInlinePrompt] = useState("");
+  const [inlineSuggestion, setInlineSuggestion] = useState<string | null>(null);
+  const [inlineWorking, setInlineWorking] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const activeFileId = useRef<string | null>(activeFile?.id || null);
   const workspaceId = useRef<string | null>(editorStore.getState().workspaceId);
   const imageInput = useRef<HTMLInputElement>(null);
@@ -135,6 +149,91 @@ export function EditorWorkspace() {
         event.preventDefault();
         void insertUploadedImages(files, view.state.selection.from, view);
         return true;
+      },
+      handleKeyDown(view, event) {
+        if (
+          (event.metaKey || event.ctrlKey) &&
+          event.key.toLowerCase() === "k"
+        ) {
+          event.preventDefault();
+          const file = editorStore
+            .getState()
+            .files.find((item) => item.id === activeFileId.current);
+          const { from, to } = view.state.selection;
+          if (!file || from === to) {
+            toast.message("Select text to ask Unix for a reviewable edit.");
+            return true;
+          }
+          const selection: EditorSelection = {
+            fileId: file.id,
+            start: from,
+            end: to,
+            baseRevision: file.revision,
+            text: view.state.doc.textBetween(from, to, "\n", "\n"),
+            contextBefore: view.state.doc.textBetween(
+              Math.max(0, from - 120),
+              from,
+              "\n",
+              "\n",
+            ),
+            contextAfter: view.state.doc.textBetween(
+              to,
+              Math.min(view.state.doc.content.size, to + 120),
+              "\n",
+              "\n",
+            ),
+          };
+          const coords = view.coordsAtPos(to);
+          editorStore.setSelection(selection);
+          setInlineRequest({
+            selection,
+            position: { left: coords.left, top: coords.bottom + 8 },
+          });
+          setInlinePrompt("");
+          setInlineSuggestion(null);
+          setInlineError(null);
+          return true;
+        }
+        return false;
+      },
+      handleDOMEvents: {
+        contextmenu(view, event) {
+          const { from, to } = view.state.selection;
+          if (from === to) return false;
+          event.preventDefault();
+          const file = editorStore
+            .getState()
+            .files.find((item) => item.id === activeFileId.current);
+          if (!file) return true;
+          const selection: EditorSelection = {
+            fileId: file.id,
+            start: from,
+            end: to,
+            baseRevision: file.revision,
+            text: view.state.doc.textBetween(from, to, "\n", "\n"),
+            contextBefore: view.state.doc.textBetween(
+              Math.max(0, from - 120),
+              from,
+              "\n",
+              "\n",
+            ),
+            contextAfter: view.state.doc.textBetween(
+              to,
+              Math.min(view.state.doc.content.size, to + 120),
+              "\n",
+              "\n",
+            ),
+          };
+          editorStore.setSelection(selection);
+          setInlineRequest({
+            selection,
+            position: { left: event.clientX, top: event.clientY + 8 },
+          });
+          setInlinePrompt("");
+          setInlineSuggestion(null);
+          setInlineError(null);
+          return true;
+        },
       },
     },
     onUpdate: ({ editor }) => {
@@ -300,11 +399,76 @@ export function EditorWorkspace() {
     else editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
   }, [editor]);
 
+  async function submitInlineRequest(override?: string) {
+    if (!inlineRequest || inlineWorking || !activeFile) return;
+    const prompt = (override ?? inlinePrompt).trim();
+    if (!prompt) return;
+    setInlineWorking(true);
+    setInlineError(null);
+    try {
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: prompt }],
+          contextFiles: [
+            {
+              id: activeFile.id,
+              title: activeFile.title,
+              content: activeFile.content,
+            },
+          ],
+          activeSelection: inlineRequest.selection,
+          folderId: editorStore.getState().workspaceId,
+          capability: "fast",
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok)
+        throw new Error(data?.error || "Unix could not prepare an edit.");
+      if (data.type !== "proposal" || !data.proposal?.replacementText)
+        throw new Error(
+          data?.text ||
+            "Unix returned an answer instead of an edit. Try asking for a rewrite.",
+        );
+      const current = editorStore.getState().activeSelection;
+      const unchanged =
+        current &&
+        current.fileId === inlineRequest.selection.fileId &&
+        current.baseRevision === inlineRequest.selection.baseRevision &&
+        current.start === inlineRequest.selection.start &&
+        current.end === inlineRequest.selection.end &&
+        current.text === inlineRequest.selection.text;
+      if (!unchanged)
+        throw new Error(
+          "The selection changed. Select it again to regenerate.",
+        );
+      editorStore.setSelection(inlineRequest.selection);
+      if (
+        !editorStore.proposeSelectionEdit(
+          data.proposal.fileId,
+          data.proposal.replacementText,
+          data.proposal.description,
+        )
+      )
+        throw new Error("The passage changed. Select it again to regenerate.");
+      setInlineSuggestion(data.proposal.replacementText);
+    } catch (error) {
+      setInlineError(
+        error instanceof Error
+          ? error.message
+          : "Unix could not prepare an edit.",
+      );
+    } finally {
+      setInlineWorking(false);
+    }
+  }
+
   if (!activeFile)
     return (
-      <div className="h-full grid place-items-center bg-zinc-950 text-zinc-500">
-        <div className="text-center">
-          <FileText className="mx-auto mb-3" />
+      <div className="grid h-full place-items-center bg-[#111113] text-zinc-500">
+        <div className="text-center text-[12px]">
+          <FileText className="mx-auto mb-2 h-4 w-4" />
           <p>Select a document to start writing.</p>
         </div>
       </div>
@@ -316,11 +480,11 @@ export function EditorWorkspace() {
   void editorTick;
 
   return (
-    <div className="h-full flex flex-col bg-zinc-950">
-      <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-zinc-800/60">
+    <div className="flex h-full flex-col bg-[#111113]">
+      <div className="flex h-9 items-center justify-between gap-3 border-b border-white/[0.05] px-2.5">
         <div className="min-w-0 flex items-center gap-2">
-          <FileText size={15} className="text-cyan-400" />
-          <span className="truncate text-sm text-zinc-300">
+          <FileText size={14} className="text-zinc-500" />
+          <span className="truncate text-[12px] text-zinc-300">
             {activeFile.title}
           </span>
         </div>
@@ -340,11 +504,11 @@ export function EditorWorkspace() {
             <SelectTrigger
               size="sm"
               aria-label="Text font"
-              className="h-8 min-w-28 border-zinc-800 bg-zinc-900 px-2 text-xs text-zinc-300"
+              className="h-7 min-w-28 border-white/[0.07] bg-white/[0.025] px-2 text-[11px] text-zinc-400"
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="border-zinc-700 bg-zinc-900 text-zinc-100">
+            <SelectContent className="border-white/[0.08] bg-[#1b1b1e] text-zinc-100">
               {writingFonts.map((font) => (
                 <SelectItem key={font.value} value={font.value}>
                   <span style={{ fontFamily: font.value }}>{font.label}</span>
@@ -352,7 +516,7 @@ export function EditorWorkspace() {
               ))}
             </SelectContent>
           </Select>
-          <span className="w-px h-5 bg-zinc-800 mx-1" />
+          <span className="mx-1 h-4 w-px bg-white/[0.06]" />
           <Tool
             label="Bold"
             active={editor?.isActive("bold")}
@@ -425,7 +589,7 @@ export function EditorWorkspace() {
               event.target.value = "";
             }}
           />
-          <span className="w-px h-5 bg-zinc-800 mx-1" />
+          <span className="mx-1 h-4 w-px bg-white/[0.06]" />
           <Tool
             label="Undo"
             disabled={!editor?.can().undo()}
@@ -449,10 +613,10 @@ export function EditorWorkspace() {
         </div>
       </div>
       {pending && (
-        <div className="mx-4 mt-3 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 text-xs">
+        <div className="mx-3 mt-2 rounded-lg border border-white/[0.07] bg-white/[0.025] p-2.5 text-[11.5px]">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="font-medium text-cyan-300">
+              <p className="font-medium text-zinc-300">
                 Proposed change · {pending.description || "AI edit"}
               </p>
               <p className="mt-1 text-zinc-500 line-through break-words">
@@ -464,14 +628,14 @@ export function EditorWorkspace() {
             </div>
             <div className="flex gap-1 shrink-0">
               <button
-                className="p-2 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.07] text-zinc-300 transition hover:bg-white/[0.12]"
                 onClick={() => editorStore.acceptChange(activeFile.id)}
                 aria-label="Accept suggestion"
               >
                 <Check size={14} />
               </button>
               <button
-                className="p-2 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-300"
                 onClick={() => editorStore.rejectChange(activeFile.id)}
                 aria-label="Reject suggestion"
               >
@@ -494,7 +658,7 @@ export function EditorWorkspace() {
           />
         )}
       </div>
-      <div className="px-4 py-1.5 border-t border-zinc-800/50 grid grid-cols-3 items-center text-[10px] text-zinc-600">
+      <div className="grid h-6 grid-cols-3 items-center border-t border-white/[0.045] px-2.5 text-[10.5px] text-zinc-600">
         <span>
           {words} words · {activeFile.content.length} characters
         </span>
@@ -505,6 +669,58 @@ export function EditorWorkspace() {
           Rich document v1 · revision {activeFile.revision}
         </span>
       </div>
+      {inlineRequest && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Dismiss inline Unix request"
+            onClick={() => {
+              setInlineRequest(null);
+              setInlineSuggestion(null);
+              setInlineError(null);
+            }}
+          />
+          <InlineAIComposer
+            position={inlineRequest.position}
+            selectedText={inlineRequest.selection.text}
+            value={inlinePrompt}
+            onChange={(value) => {
+              setInlineError(null);
+              setInlinePrompt(value);
+            }}
+            isWorking={inlineWorking}
+            suggestion={inlineSuggestion}
+            error={inlineError}
+            onSubmit={() => void submitInlineRequest()}
+            onQuickAction={(action) => {
+              setInlinePrompt(action);
+              void submitInlineRequest(action);
+            }}
+            onAccept={() => {
+              if (editorStore.acceptChange(inlineRequest.selection.fileId)) {
+                setInlineRequest(null);
+                setInlineSuggestion(null);
+              }
+            }}
+            onReject={() => {
+              editorStore.rejectChange(inlineRequest.selection.fileId);
+              setInlineRequest(null);
+              setInlineSuggestion(null);
+            }}
+            onRetry={() => {
+              editorStore.rejectChange(inlineRequest.selection.fileId);
+              setInlineSuggestion(null);
+              void submitInlineRequest();
+            }}
+            onClose={() => {
+              setInlineRequest(null);
+              setInlineSuggestion(null);
+              setInlineError(null);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -530,7 +746,7 @@ function Tool({
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
-      className={`p-2 rounded transition-colors disabled:opacity-30 ${active ? "bg-cyan-500/15 text-cyan-300" : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800"}`}
+      className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${active ? "bg-white/[0.07] text-zinc-200" : "text-zinc-500 hover:bg-white/[0.05] hover:text-zinc-200"}`}
     >
       {children}
     </button>
