@@ -29,11 +29,11 @@ const downloads: DesktopDownload[] = [
   },
   {
     platform: "macOS",
-    detail: "Apple silicon and Intel disk image",
+    detail: "Disk image for Apple silicon Macs",
     icon: Apple,
     href:
       process.env.UNIX_DOWNLOAD_MAC_URL ||
-      "https://github.com/kingjethro999/Unix/releases/latest/download/Unix-x64.dmg",
+      "https://github.com/kingjethro999/Unix/releases/latest/download/Unix-arm64.dmg",
   },
   {
     platform: "Linux",

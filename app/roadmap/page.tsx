@@ -27,8 +27,8 @@ const roadmapItems = [
   },
   {
     quarter: "Q2 2026",
-    status: "in-progress",
-    title: "Enhancement",
+    status: "completed",
+    title: "Reliable writing",
     items: [
       {
         text: "Writing, structure, tone, and readability analysis",
@@ -37,29 +37,51 @@ const roadmapItems = [
       { text: "PDF and DOCX manuscript export", done: true },
       { text: "Workspace and document writing rules", done: true },
       { text: "Image upload, drop, and creation", done: true },
-      { text: "World-building wiki system", done: true },
+      { text: "Structured saving and revision-aware recovery", done: true },
     ],
   },
   {
     quarter: "Q3 2026",
     status: "completed",
-    title: "Collaboration",
+    title: "Writer workflow",
     items: [
-      { text: "Live multi-user editing with cursors", done: true },
-      { text: "Comments and suggestions", done: true },
-      { text: "Team workspaces and member management", done: true },
-      { text: "Version history and named branches", done: true },
+      {
+        text: "Selection-based AI proposals with accept and reject",
+        done: true,
+      },
+      { text: "Inline AI requests from selected prose", done: true },
+      { text: "Writing font choices for manuscript text", done: true },
+      {
+        text: "World-building wiki, teams, cursors, and draft history",
+        done: true,
+      },
     ],
   },
   {
     quarter: "Q4 2026",
+    status: "in-progress",
+    title: "Desktop and research",
+    items: [
+      {
+        text: "Desktop releases for Windows, Linux, and Apple silicon macOS",
+        done: true,
+      },
+      { text: "Open-draft offline editing and reconnect sync", done: true },
+      {
+        text: "Source-aware research with search and page readers",
+        done: true,
+      },
+      { text: "API for integrations", done: false },
+    ],
+  },
+  {
+    quarter: "Next",
     status: "planned",
-    title: "Platform Expansion",
+    title: "Platform expansion",
     items: [
       { text: "Mobile apps (iOS & Android)", done: false },
-      { text: "Desktop apps (Windows, Mac, Linux)", done: false },
-      { text: "Offline mode support", done: false },
-      { text: "API for integrations", done: false },
+      { text: "More integrations and a public developer API", done: false },
+      { text: "Advanced plot and character analysis", done: false },
     ],
   },
 ];
