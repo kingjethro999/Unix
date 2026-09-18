@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { EditorLayout } from "@/components/editor";
+import { WorkspaceClient } from "@/components/editor/workspace-client";
 import { getFolder, getPages } from "@/app/workspace/actions";
 
 export default async function WorkspacePage({
@@ -14,7 +14,7 @@ export default async function WorkspacePage({
   const folder = await getFolder(id);
   if (!folder) return <div className="p-8">Workspace not found</div>;
   return (
-    <EditorLayout
+    <WorkspaceClient
       folder={folder}
       initialPages={await getPages(id)}
       userId={user.id}
