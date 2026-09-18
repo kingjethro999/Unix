@@ -249,12 +249,10 @@ export function FileSidebar({ readOnly }: FileSidebarProps) {
   };
 
   const filteredFiles = searchQuery
-    ? state.files.filter(
-        (f) =>
-          f.title !== ".unixrc" &&
-          f.title.toLowerCase().includes(searchQuery.toLowerCase()),
+    ? state.files.filter((f) =>
+        f.title.toLowerCase().includes(searchQuery.toLowerCase()),
       )
-    : state.files.filter((file) => file.title !== ".unixrc");
+    : state.files;
 
   return (
     <div className="h-full flex flex-col bg-zinc-950 border-r border-zinc-800/50">
@@ -363,10 +361,7 @@ export function FileSidebar({ readOnly }: FileSidebarProps) {
         {/* Footer */}
         <div className="p-3 border-t border-zinc-800/50">
           <div className="flex items-center gap-2 text-[10px] text-zinc-600">
-            <span className="font-mono">
-              {state.files.filter((file) => file.title !== ".unixrc").length}{" "}
-              files
-            </span>
+            <span className="font-mono">{state.files.length} files</span>
           </div>
         </div>
       </>
