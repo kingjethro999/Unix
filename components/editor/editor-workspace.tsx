@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
-import { TextStyleKit } from "@tiptap/extension-text-style";
+import { FontSize, TextStyle } from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
 import Image from "@tiptap/extension-image";
 import {
@@ -92,6 +92,8 @@ const writingFontSizes = [10, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36];
 export function EditorWorkspace() {
   const activeFile = useActiveFile();
   const [editorTick, setEditorTick] = useState(0);
+  const [fontSizeOpen, setFontSizeOpen] = useState(false);
+  const [fontSizeInput, setFontSizeInput] = useState("16");
   const [showFind, setShowFind] = useState(false);
   const [inlineRequest, setInlineRequest] = useState<{
     selection: EditorSelection;
@@ -113,8 +115,9 @@ export function EditorWorkspace() {
   const extensions = useMemo(
     () => [
       StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
-      TextStyleKit,
+      TextStyle,
       FontFamily.configure({ types: ["textStyle"] }),
+      FontSize.configure({ types: ["textStyle"] }),
       TableKit.configure({ table: { resizable: true } }),
       Image.configure({ allowBase64: false, inline: false }),
       CollaborationCursors,
@@ -280,6 +283,21 @@ export function EditorWorkspace() {
       });
     },
   });
+  useEffect(() => {
+    if (!editor) return;
+    const size = editor.getAttributes("textStyle").fontSize as
+      | string
+      | undefined;
+    setFontSizeInput((size || "16px").replace("px", ""));
+  }, [editor, editorTick]);
+
+  const applyFontSize = (value: string) => {
+    const size = Number(value);
+    if (!Number.isFinite(size) || size < 8 || size > 96) return;
+    editor?.chain().focus().setFontSize(`${size}px`).run();
+    setFontSizeInput(String(size));
+  };
+
   const activeDocument = activeFile?.document;
   const localSelection = editor
     ? { from: editor.state.selection.from, to: editor.state.selection.to }
@@ -537,43 +555,44 @@ export function EditorWorkspace() {
                 ))}
               </SelectContent>
             </Select>
-            <select
-              aria-label="Font size presets"
-              value={(
-                (editor?.getAttributes("textStyle").fontSize as string) ||
-                "16px"
-              ).replace("px", "")}
-              onChange={(event) => {
-                const size = Number(event.target.value);
-                if (Number.isFinite(size))
-                  editor?.chain().focus().setFontSize(`${size}px`).run();
-              }}
-              className="h-7 rounded-md border border-white/[0.07] bg-white/[0.025] px-1.5 text-[11px] text-zinc-300 outline-none transition focus:border-white/[0.16]"
-              title="Font size presets"
-            >
-              {writingFontSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-            <input
-              aria-label="Custom font size"
-              type="number"
-              min="8"
-              max="96"
-              value={(
-                (editor?.getAttributes("textStyle").fontSize as string) ||
-                "16px"
-              ).replace("px", "")}
-              onChange={(event) => {
-                const size = Number(event.target.value);
-                if (Number.isFinite(size) && size >= 8 && size <= 96)
-                  editor?.chain().focus().setFontSize(`${size}px`).run();
-              }}
-              className="h-7 w-11 rounded-md border border-white/[0.07] bg-white/[0.025] px-1.5 text-[11px] text-zinc-300 outline-none transition focus:border-white/[0.16]"
-              title="Custom font size"
-            />
+            <div className="relative flex h-7 items-center rounded-md border border-white/[0.07] bg-white/[0.025] text-[11px] text-zinc-300">
+              <input
+                aria-label="Font size"
+                inputMode="numeric"
+                value={fontSizeInput}
+                onChange={(event) => setFontSizeInput(event.target.value)}
+                onBlur={() => applyFontSize(fontSizeInput)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") applyFontSize(fontSizeInput);
+                }}
+                className="h-full w-10 bg-transparent px-1.5 text-center outline-none"
+              />
+              <button
+                type="button"
+                aria-label="Font size presets"
+                onClick={() => setFontSizeOpen((open) => !open)}
+                className="h-full border-l border-white/[0.07] px-1 text-zinc-500 hover:text-zinc-200"
+              >
+                ⌄
+              </button>
+              {fontSizeOpen && (
+                <div className="absolute left-0 top-8 z-30 grid w-28 grid-cols-3 gap-1 rounded-md border border-white/[0.08] bg-[#1b1b1e] p-1 shadow-xl">
+                  {writingFontSizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => {
+                        applyFontSize(String(size));
+                        setFontSizeOpen(false);
+                      }}
+                      className="rounded px-1 py-1 text-[10px] hover:bg-white/[0.08]"
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <span className="mx-1 h-4 w-px bg-white/[0.06]" />
             <Tool
               label="Bold"
