@@ -429,3 +429,24 @@ html:not(.dark) .unix-editor td {
 html:not(.dark) ::-webkit-scrollbar-thumb {
   background: #d4d4d8;
 }
+
+/* `prose-invert` sets CSS variables rather than a text utility. Explicitly
+   reset those variables for streamed assistant markdown in light mode. */
+html:not(.dark) .unix-ai-sidebar .prose {
+  --tw-prose-body: #27272a;
+  --tw-prose-headings: #18181b;
+  --tw-prose-lead: #3f3f46;
+  --tw-prose-links: #1d4ed8;
+  --tw-prose-bold: #18181b;
+  --tw-prose-counters: #52525b;
+  --tw-prose-bullets: #a1a1aa;
+  --tw-prose-hr: #e4e4e7;
+  --tw-prose-quotes: #3f3f46;
+  --tw-prose-quote-borders: #d4d4d8;
+  --tw-prose-captions: #52525b;
+  --tw-prose-code: #18181b;
+  --tw-prose-pre-code: #27272a;
+  --tw-prose-pre-bg: #f4f4f5;
+  --tw-prose-th-borders: #d4d4d8;
+  --tw-prose-td-borders: #e4e4e7;
+}

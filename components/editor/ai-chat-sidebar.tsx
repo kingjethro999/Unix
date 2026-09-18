@@ -572,7 +572,7 @@ export function AIChatSidebar() {
   const pendingChanges = editorStore.getReviewingFilesCount();
 
   return (
-    <aside className="flex h-full min-w-0 flex-col overflow-hidden border-l border-white/[0.055] bg-[#111113] text-zinc-200">
+    <aside className="unix-ai-sidebar flex h-full min-w-0 flex-col overflow-hidden border-l border-white/[0.055] bg-[#111113] text-zinc-200">
       <header className="flex h-10 shrink-0 items-center justify-between border-b border-white/[0.055] px-2.5">
         <span
           title={conversationName}
