@@ -7,6 +7,10 @@ import { gatherResearch } from "@/lib/research";
 
 export const runtime = "nodejs";
 
+function writingTimeoutMs() {
+  return Number(process.env.AI_WRITE_TIMEOUT_MS || 180_000);
+}
+
 const inputSchema = z.object({
   messages: z
     .array(
@@ -136,7 +140,7 @@ async function requestGemini(input: {
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(process.env.GEMINI_MODEL || "gemini-2.5-flash")}:generateContent?key=${encodeURIComponent(input.key)}`,
     {
       method: "POST",
-      signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS || 45_000)),
+      signal: AbortSignal.timeout(writingTimeoutMs()),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         systemInstruction: {
@@ -205,7 +209,7 @@ async function requestApmix(input: {
 }) {
   const response = await fetch("https://api.apmix.ai/v1/chat/completions", {
     method: "POST",
-    signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS || 45_000)),
+    signal: AbortSignal.timeout(writingTimeoutMs()),
     headers: {
       Authorization: `Bearer ${input.key}`,
       "Content-Type": "application/json",
@@ -253,7 +257,7 @@ async function requestGroq(input: {
     "https://api.groq.com/openai/v1/chat/completions",
     {
       method: "POST",
-      signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS || 45_000)),
+      signal: AbortSignal.timeout(writingTimeoutMs()),
       headers: {
         Authorization: `Bearer ${input.key}`,
         "Content-Type": "application/json",
@@ -531,9 +535,7 @@ export async function POST(request: NextRequest) {
     try {
       const provider = await fetch(`${baseUrl}/responses`, {
         method: "POST",
-        signal: AbortSignal.timeout(
-          Number(process.env.AI_TIMEOUT_MS || 45_000),
-        ),
+        signal: AbortSignal.timeout(writingTimeoutMs()),
         headers: {
           Authorization: `Bearer ${key}`,
           "Content-Type": "application/json",
