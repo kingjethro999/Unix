@@ -136,28 +136,43 @@ export function Hero() {
           <div className="flex h-[430px] md:h-[520px]">
             <aside
               style={{ width: leftWidth }}
-              className="hidden shrink-0 border-r border-zinc-800 bg-zinc-950 p-3 md:block"
+              className="hidden shrink-0 border-r border-zinc-800 bg-zinc-950 md:block"
             >
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                Pages
-              </p>
-              {pages.map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setActivePage(page)}
-                  className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs ${activePage === page ? "bg-blue-600/20 text-blue-400" : "text-zinc-400 hover:bg-zinc-800"}`}
-                >
-                  <FileText size={14} />
-                  {page}
-                </button>
-              ))}
-              <div className="mt-5 border-t border-zinc-800 pt-3">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                  Unixrc
+              <div className="border-b border-zinc-800 p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <b className="truncate font-mono text-xs text-white">
+                    The Last Lantern
+                  </b>
+                  <span className="text-zinc-500">+</span>
+                </div>
+                <div className="rounded-md bg-zinc-900/50 px-2 py-1.5 text-[10px] text-zinc-500">
+                  Search files…
+                </div>
+              </div>
+              <div className="p-2">
+                <p className="px-2 py-2 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+                  Files
                 </p>
-                <p className="text-[11px] leading-5 text-zinc-400">
-                  Keep Sarah observant. British spelling. Tense: past.
-                </p>
+                {pages.map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setActivePage(page)}
+                    className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs ${activePage === page ? "bg-blue-600/20 text-blue-400" : "text-zinc-400 hover:bg-zinc-800"}`}
+                  >
+                    <FileText size={14} />
+                    {page}
+                  </button>
+                ))}
+                <div className="mt-4 border-t border-zinc-800 pt-3">
+                  <p className="px-2 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+                    Writing rules
+                  </p>
+                  <div className="mt-2 rounded-md bg-zinc-900/50 p-2 text-[10px] leading-4 text-zinc-400">
+                    <b className="text-zinc-300">.unixrc</b>
+                    <br />
+                    Sarah is observant · British spelling · Past tense
+                  </div>
+                </div>
               </div>
             </aside>
             <div
