@@ -362,6 +362,7 @@ html:not(.dark) [class*="bg-[#141416]"] {
   background-color: #ffffff;
 }
 html:not(.dark) .bg-zinc-800,
+html:not(.dark) [class*="bg-zinc-800/"],
 html:not(.dark) [class*="bg-[#18181b]"],
 html:not(.dark) [class*="bg-[#1b1b1e]"],
 html:not(.dark) [class*="bg-[#19191c]"] {
