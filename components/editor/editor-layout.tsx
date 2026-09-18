@@ -28,6 +28,7 @@ import { VersionsPanel } from "./versions-panel";
 import { AnalysisPanel } from "./analysis-panel";
 import { WikiPanel } from "./wiki-panel";
 import { TeamPanel } from "./team-panel";
+import { WritingRulesPanel } from "./writing-rules-panel";
 import { ExportDialog } from "./export-dialog";
 import { ShareModal } from "./share-modal";
 import { motion, AnimatePresence } from "motion/react";
@@ -121,7 +122,7 @@ export function EditorLayout({
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [workspaceTool, setWorkspaceTool] = useState<
-    "review" | "versions" | "analysis" | "wiki" | "team" | null
+    "review" | "versions" | "analysis" | "wiki" | "team" | "rules" | null
   >(null);
   const tools = [
     { id: "review", label: "Comments", icon: MessagesSquare },
@@ -129,6 +130,7 @@ export function EditorLayout({
     { id: "wiki", label: "World wiki", icon: BookOpen },
     { id: "versions", label: "Draft history", icon: History },
     { id: "team", label: "Team", icon: Users },
+    { id: "rules", label: "Writing rules (.unixrc)", icon: BookOpen },
   ] as const;
 
   // Force re-render on history changes (subscribing to store updates)
@@ -430,6 +432,8 @@ export function EditorLayout({
             <WikiPanel />
           ) : workspaceTool === "team" ? (
             <TeamPanel />
+          ) : workspaceTool === "rules" ? (
+            <WritingRulesPanel />
           ) : null}
         </DialogContent>
       </Dialog>
