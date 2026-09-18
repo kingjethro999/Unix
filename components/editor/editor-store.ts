@@ -116,6 +116,7 @@ const editorCommands = new Map<
     canUndo: () => boolean;
     canRedo: () => boolean;
     insertImage: (src: string, alt: string) => boolean;
+    appendText: (text: string) => boolean;
   }
 >();
 
@@ -559,6 +560,10 @@ export const editorStore = {
     state.files.filter((file) => file.pendingEdit).length,
   insertImage(fileId: string, src: string, alt: string) {
     return editorCommands.get(fileId)?.insertImage(src, alt) || false;
+  },
+  appendText(fileId: string, text: string) {
+    if (!text.trim()) return false;
+    return editorCommands.get(fileId)?.appendText(text) || false;
   },
   proposalApplied(fileId: string, document: JSONContent, text: string) {
     patchFile(fileId, {

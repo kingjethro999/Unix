@@ -31,6 +31,7 @@ import {
   type EditorSelection,
 } from "./editor-store";
 import { validateTextProposal } from "@/lib/edit-proposal";
+import { textToDocument } from "@/lib/document";
 import { FindReplace } from "./find-replace";
 import {
   CollaborationCursors,
@@ -385,6 +386,12 @@ export function EditorWorkspace() {
       canRedo: () => editor.can().redo(),
       insertImage: (src: string, alt: string) =>
         editor.chain().focus().setImage({ src, alt }).run(),
+      appendText: (text: string) =>
+        editor
+          .chain()
+          .focus("end")
+          .insertContent(textToDocument(text).content || [])
+          .run(),
     });
   }, [editor, activeFile?.id]);
 

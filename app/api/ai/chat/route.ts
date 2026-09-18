@@ -83,19 +83,34 @@ type AssistantResult = {
 };
 
 function parseAssistantResult(text: string): AssistantResult | null {
-  try {
-    const value = JSON.parse(text) as AssistantResult;
+  function validate(value: unknown): AssistantResult | null {
+    if (!value || typeof value !== "object") return null;
+    const result = value as AssistantResult;
     if (
-      !["chat", "edit", "image"].includes(value.kind) ||
-      typeof value.message !== "string" ||
-      typeof value.replacementText !== "string" ||
-      typeof value.description !== "string" ||
-      typeof value.imagePrompt !== "string"
+      !["chat", "edit", "image"].includes(result.kind) ||
+      typeof result.message !== "string" ||
+      typeof result.replacementText !== "string" ||
+      typeof result.description !== "string" ||
+      typeof result.imagePrompt !== "string"
     )
       return null;
-    return value;
+    return result;
+  }
+  const candidate = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  try {
+    return validate(JSON.parse(candidate));
   } catch {
-    return null;
+    const firstBrace = candidate.indexOf("{");
+    const lastBrace = candidate.lastIndexOf("}");
+    if (firstBrace < 0 || lastBrace <= firstBrace) return null;
+    try {
+      return validate(JSON.parse(candidate.slice(firstBrace, lastBrace + 1)));
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -155,10 +170,10 @@ function apmixModelFor(
   capability: "fast" | "reasoning" | "research" | "logic",
 ) {
   const defaults = {
-    fast: "claude-sonnet-4-6-free",
-    reasoning: "claude-opus-5-free",
-    research: "claude-opus-4-8-free",
-    logic: "claude-opus-4-7-free",
+    fast: "gpt-5.6-luna-free",
+    reasoning: "gpt-5.6-luna-free",
+    research: "gpt-5.6-luna-free",
+    logic: "gpt-5.6-luna-free",
   } as const;
   const environmentNames = {
     fast: "APMIX_FAST_MODEL",
@@ -175,37 +190,45 @@ async function requestApmix(input: {
   instructions: string;
   messages: Array<{ role: "user" | "model" | "assistant"; content: string }>;
 }) {
-  const response = await fetch("https://api.apmix.ai/v1/messages", {
+  const response = await fetch("https://api.apmix.ai/v1/chat/completions", {
     method: "POST",
     signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS || 45_000)),
     headers: {
-      "x-api-key": input.key,
-      "anthropic-version": "2023-06-01",
+      Authorization: `Bearer ${input.key}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: input.model,
-      max_tokens: Number(process.env.AI_MAX_OUTPUT_TOKENS || 4000),
-      system: `${input.instructions}\n\nReturn one JSON object only, with every field from this schema: ${JSON.stringify(responseSchema)}.`,
-      messages: input.messages.slice(-12).map((message) => ({
-        role: message.role === "user" ? "user" : "assistant",
-        content: message.content,
-      })),
+      max_tokens: Number(process.env.AI_MAX_OUTPUT_TOKENS || 6000),
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `${input.instructions}\n\nReturn one JSON object only, with every field from this schema: ${JSON.stringify(responseSchema)}.`,
+        },
+        ...input.messages.slice(-12).map((message) => ({
+          role: message.role === "user" ? "user" : "assistant",
+          content: message.content,
+        })),
+      ],
     }),
   });
   if (!response.ok) return null;
   const payload = (await response.json()) as {
-    content?: Array<{ type?: string; text?: string }>;
-    usage?: { input_tokens?: number; output_tokens?: number };
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   const result = parseAssistantResult(
-    (payload.content || [])
-      .filter((item) => item.type === "text")
-      .map((item) => item.text || "")
-      .join(""),
+    payload.choices?.[0]?.message?.content || "",
   );
   if (!result) return null;
-  return { result, usage: payload.usage || {} };
+  return {
+    result,
+    usage: {
+      input_tokens: payload.usage?.prompt_tokens || 0,
+      output_tokens: payload.usage?.completion_tokens || 0,
+    },
+  };
 }
 
 async function requestGroq(input: {

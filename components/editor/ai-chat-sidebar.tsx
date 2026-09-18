@@ -47,6 +47,8 @@ interface ChatMessage {
   attachments?: Array<{ id: string; title: string }>;
   image?: ImageAsset;
   proposalFileId?: string;
+  appendFileId?: string;
+  appendContent?: string;
   timestamp: Date;
 }
 interface Conversation {
@@ -177,6 +179,7 @@ export function AIChatSidebar() {
 
   async function send(override?: string) {
     const content = (override ?? input).trim();
+    let renamedTitle: string | null = null;
     if (
       (!content && !attachments.length) ||
       !editorState.workspaceId ||
@@ -197,23 +200,41 @@ export function AIChatSidebar() {
       return;
     }
     const rename = content.match(
-      /^(?:please\s+)?rename(?:\s+(?:this|the))?\s+(?:page|document)(?:\s+to)?\s+(.+)$/i,
+      /(?:^|[,.;]\s*)(?:please\s+)?rename(?:\s+(?:this|the))?\s+(?:page|document)\s+(?:to|as)\s+([^,.;\n]+)/i,
     );
-    if (rename && activeFile) {
-      const title = rename[1].trim().replace(/["“”]/g, "");
-      if (title && !/for me$/i.test(title)) {
-        await editorStore.renameFile(activeFile.id, title);
-        setMessages((current) => [
-          ...current,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: `Renamed this page to **${title}**.`,
-            timestamp: new Date(),
-          },
-        ]);
-        setInput("");
-        return;
+    const inferredTitle =
+      /rename(?:\s+(?:this|the))?\s+(?:page|document)/i.test(content)
+        ? content.match(
+            /\b(?:hero|he)\s+(?:is|called|named)\s+([\w'-]{2,60})/i,
+          )?.[1]
+        : null;
+    if ((rename || inferredTitle) && activeFile) {
+      const title = (rename?.[1] || inferredTitle || "")
+        .trim()
+        .replace(/["“”]/g, "");
+      if (title) {
+        const formattedTitle = title.replace(/\b\w/g, (letter) =>
+          letter.toUpperCase(),
+        );
+        await editorStore.renameFile(activeFile.id, formattedTitle);
+        renamedTitle = formattedTitle;
+        const remaining = content
+          .replace(rename?.[0] || "", "")
+          .replace(/^\s*(?:,|and|then)\s*/i, "")
+          .trim();
+        if (!remaining) {
+          setMessages((current) => [
+            ...current,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: `Renamed this page to **${title}**.`,
+              timestamp: new Date(),
+            },
+          ]);
+          setInput("");
+          return;
+        }
       }
     }
     if (
@@ -383,7 +404,11 @@ export function AIChatSidebar() {
           {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: data.text,
+            content: renamedTitle
+              ? `Renamed this page to **${renamedTitle}**.\n\n${data.text}`
+              : data.text,
+            appendFileId: activeFile?.id,
+            appendContent: data.text,
             timestamp: new Date(),
           },
         ]);
@@ -576,6 +601,25 @@ export function AIChatSidebar() {
                     </button>
                   </div>
                 )}
+                {message.appendFileId &&
+                  editorState.files.some(
+                    (file) => file.id === message.appendFileId,
+                  ) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const added = editorStore.appendText(
+                          message.appendFileId!,
+                          message.appendContent || message.content,
+                        );
+                        if (!added) editorStore.openFile(message.appendFileId!);
+                      }}
+                      className="mt-3 flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2 py-1.5 text-[11px] text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-200"
+                    >
+                      <FileText size={12} />
+                      Add to page
+                    </button>
+                  )}
                 {message.proposalFileId &&
                   editorState.files.find(
                     (file) => file.id === message.proposalFileId,
