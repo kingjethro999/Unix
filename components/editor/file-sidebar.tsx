@@ -346,7 +346,7 @@ export function FileSidebar({ readOnly }: FileSidebarProps) {
                   isActive={file.id === activeFileId}
                   onDragStart={handleFileDragStart}
                   onExport={handleExport}
-                  readOnly={readOnly || file.title === ".unixrc"}
+                  readOnly={readOnly}
                 />
               </motion.div>
             ))}

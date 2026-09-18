@@ -19,6 +19,7 @@ export function Hero() {
     "Chapter Four",
     "Character Bible",
     "Research Notes",
+    ".unixrc",
   ];
   const initialDrafts: Record<string, string> = {
     "Chapter One":
@@ -29,6 +30,9 @@ export function Hero() {
       "Sarah Vale: observant, guarded, and stubbornly kind. Her eyes are blue, not brown.",
     "Research Notes":
       "Autumn light fades early at this latitude, leaving street lamps to define the route home.",
+    ".unixrc": "Sarah is observant.
+Use British spelling.
+Narration remains in past tense.",
   };
   const [activePage, setActivePage] = useState("Chapter One");
   const [drafts, setDrafts] = useState(initialDrafts);
@@ -163,16 +167,6 @@ export function Hero() {
                     {page}
                   </button>
                 ))}
-                <div className="mt-4 border-t border-zinc-800 pt-3">
-                  <p className="px-2 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
-                    Writing rules
-                  </p>
-                  <div className="mt-2 rounded-md bg-zinc-900/50 p-2 text-[10px] leading-4 text-zinc-400">
-                    <b className="text-zinc-300">.unixrc</b>
-                    <br />
-                    Sarah is observant · British spelling · Past tense
-                  </div>
-                </div>
               </div>
             </aside>
             <div
