@@ -47,8 +47,6 @@ interface ChatMessage {
   attachments?: Array<{ id: string; title: string }>;
   image?: ImageAsset;
   proposalFileId?: string;
-  appendFileId?: string;
-  appendContent?: string;
   timestamp: Date;
 }
 interface Conversation {
@@ -80,6 +78,7 @@ export function AIChatSidebar() {
     Array<{ id: string; title: string }>
   >([]);
   const [isWorking, setIsWorking] = useState(false);
+  const [activity, setActivity] = useState<string[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -370,6 +369,10 @@ export function AIChatSidebar() {
     const requestMessages = [...messages, userMessage];
     hasStartedChatRef.current = true;
     const requestSelection = editorStore.getState().activeSelection;
+    setActivity([
+      activeFile ? `Read ${activeFile.title}` : "Checked the workspace",
+      "Drafting changes…",
+    ]);
     setMessages(requestMessages);
     setInput("");
     if (composerRef.current) composerRef.current.style.height = "44px";
@@ -399,6 +402,14 @@ export function AIChatSidebar() {
           })),
           contextFiles,
           activeSelection: requestSelection,
+          activeDocument: activeFile
+            ? {
+                id: activeFile.id,
+                title: activeFile.title,
+                content: activeFile.content,
+                baseRevision: activeFile.revision,
+              }
+            : null,
           folderId: editorState.workspaceId,
           conversationId,
           capability:
@@ -445,6 +456,10 @@ export function AIChatSidebar() {
           throw new Error(
             "The passage changed. Select it again to regenerate.",
           );
+        setActivity((current) => [
+          ...current.filter((item) => item !== "Drafting changes…"),
+          "Prepared selection review",
+        ]);
         setMessages((currentMessages) => [
           ...currentMessages,
           {
@@ -455,7 +470,56 @@ export function AIChatSidebar() {
             timestamp: new Date(),
           },
         ]);
+      } else if (data.type === "document") {
+        let target = data.document.fileId
+          ? editorStore
+              .getState()
+              .files.find((file) => file.id === data.document.fileId)
+          : undefined;
+        if (!target) {
+          target = await editorStore.createFile(
+            data.document.title || "Untitled Page",
+          );
+        }
+        if (!target)
+          throw new Error("Unix could not create the document for this draft.");
+        if (
+          data.document.title &&
+          titleKey(data.document.title) !== titleKey(target.title)
+        )
+          await editorStore.renameFile(target.id, data.document.title);
+        const proposed = data.document.appendText
+          ? editorStore.proposeDocumentAppend(
+              target.id,
+              data.document.appendText,
+              data.document.description,
+            )
+          : true;
+        if (!proposed)
+          throw new Error(
+            "The document changed while Unix was writing. Try again to prepare a fresh review.",
+          );
+        setActivity((current) => [
+          ...current.filter((item) => item !== "Drafting changes…"),
+          `Prepared review for ${data.document.title || target.title}`,
+        ]);
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content:
+              data.text ||
+              `Prepared changes for **${data.document.title || target.title}**.`,
+            proposalFileId: data.document.appendText ? target.id : undefined,
+            timestamp: new Date(),
+          },
+        ]);
       } else if (data.type === "image") {
+        setActivity((current) => [
+          ...current.filter((item) => item !== "Drafting changes…"),
+          "Prepared image",
+        ]);
         setMessages((currentMessages) => [
           ...currentMessages,
           {
@@ -475,13 +539,19 @@ export function AIChatSidebar() {
             content: renamedTitle
               ? `Renamed this page to **${renamedTitle}**.\n\n${data.text}`
               : data.text,
-            appendFileId: activeFile?.id,
-            appendContent: data.text,
             timestamp: new Date(),
           },
         ]);
+        setActivity((current) => [
+          ...current.filter((item) => item !== "Drafting changes…"),
+          "Answered workspace question",
+        ]);
       }
     } catch (error) {
+      setActivity((current) => [
+        ...current.filter((item) => item !== "Drafting changes…"),
+        "Request could not be completed",
+      ]);
       setMessages((currentMessages) => [
         ...currentMessages,
         {
@@ -669,25 +739,6 @@ export function AIChatSidebar() {
                     </button>
                   </div>
                 )}
-                {message.appendFileId &&
-                  editorState.files.some(
-                    (file) => file.id === message.appendFileId,
-                  ) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const added = editorStore.appendText(
-                          message.appendFileId!,
-                          message.appendContent || message.content,
-                        );
-                        if (!added) editorStore.openFile(message.appendFileId!);
-                      }}
-                      className="mt-3 flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2 py-1.5 text-[11px] text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-200"
-                    >
-                      <FileText size={12} />
-                      Add to page
-                    </button>
-                  )}
                 {message.proposalFileId &&
                   editorState.files.find(
                     (file) => file.id === message.proposalFileId,
@@ -718,10 +769,25 @@ export function AIChatSidebar() {
               </div>
             </article>
           ))}
-          {isWorking && (
-            <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-              <Sparkles size={13} className="animate-pulse" />
-              Working
+          {!!activity.length && (
+            <div className="space-y-1 pb-1 text-[11px] text-zinc-500">
+              {activity.map((item, index) => (
+                <div
+                  key={`${item}-${index}`}
+                  className="flex items-center gap-2"
+                >
+                  <Sparkles
+                    size={12}
+                    className={cn(
+                      "text-zinc-600",
+                      isWorking &&
+                        index === activity.length - 1 &&
+                        "animate-pulse text-zinc-400",
+                    )}
+                  />
+                  <span>{item}</span>
+                </div>
+              ))}
             </div>
           )}
           <div ref={endRef} />

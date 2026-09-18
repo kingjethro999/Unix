@@ -356,6 +356,23 @@ export function EditorWorkspace() {
           .getState()
           .files.find((file) => file.id === fileId);
         if (proposal.fileId !== fileId || !current) return false;
+        if (proposal.kind === "document") {
+          if (current.revision !== proposal.baseRevision) return false;
+          const applied = editor
+            .chain()
+            .focus("end")
+            .insertContent(
+              textToDocument(proposal.replacementText).content || [],
+            )
+            .run();
+          if (applied)
+            editorStore.proposalApplied(
+              fileId,
+              editor.getJSON(),
+              editor.getText({ blockSeparator: "\n" }),
+            );
+          return applied;
+        }
         const validation = validateTextProposal(
           editor.state.doc,
           proposal,
@@ -386,12 +403,6 @@ export function EditorWorkspace() {
       canRedo: () => editor.can().redo(),
       insertImage: (src: string, alt: string) =>
         editor.chain().focus().setImage({ src, alt }).run(),
-      appendText: (text: string) =>
-        editor
-          .chain()
-          .focus("end")
-          .insertContent(textToDocument(text).content || [])
-          .run(),
     });
   }, [editor, activeFile?.id]);
 
@@ -628,10 +639,10 @@ export function EditorWorkspace() {
               <p className="font-medium text-zinc-300">
                 Proposed change · {pending.description || "AI edit"}
               </p>
-              <p className="mt-1 text-zinc-500 line-through break-words">
+              <p className="mt-1 rounded bg-red-500/10 px-1.5 py-1 text-red-300 line-through break-words">
                 {pending.expectedText}
               </p>
-              <p className="mt-1 text-zinc-200 break-words">
+              <p className="mt-1 rounded bg-emerald-500/10 px-1.5 py-1 text-emerald-200 break-words">
                 {pending.replacementText}
               </p>
             </div>

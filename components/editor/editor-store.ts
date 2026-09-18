@@ -116,7 +116,6 @@ const editorCommands = new Map<
     canUndo: () => boolean;
     canRedo: () => boolean;
     insertImage: (src: string, alt: string) => boolean;
-    appendText: (text: string) => boolean;
   }
 >();
 
@@ -561,9 +560,27 @@ export const editorStore = {
   insertImage(fileId: string, src: string, alt: string) {
     return editorCommands.get(fileId)?.insertImage(src, alt) || false;
   },
-  appendText(fileId: string, text: string) {
-    if (!text.trim()) return false;
-    return editorCommands.get(fileId)?.appendText(text) || false;
+  proposeDocumentAppend(fileId: string, text: string, description?: string) {
+    const file = state.files.find((item) => item.id === fileId);
+    if (!file || !text.trim()) return false;
+    patchFile(fileId, {
+      pendingEdit: {
+        id: crypto.randomUUID(),
+        fileId,
+        baseRevision: file.revision,
+        from: 0,
+        to: 0,
+        expectedText: "",
+        replacementText: text,
+        contextBefore: file.content.slice(-1000),
+        contextAfter: "",
+        description: description || "Append AI draft",
+        kind: "document",
+      },
+      isReviewing: true,
+      originalContent: file.content,
+    });
+    return true;
   },
   proposalApplied(fileId: string, document: JSONContent, text: string) {
     patchFile(fileId, {
