@@ -512,7 +512,13 @@ export async function POST(request: NextRequest) {
   const researchContext = research.length
     ? `\n\nCurrent research sources (cite these URLs when you use them):\n${research.map((source, index) => `[${index + 1}] ${source.title}\n${source.url}\n${source.snippet}`).join("\n\n")}`
     : "";
-  const minimumWords = requestedMinimumWords(latest.content);
+  const requestedPagesWords = requestedMinimumWords(latest.content);
+  const minimumWords =
+    requestedPagesWords ||
+    (data.mode === "write" &&
+    /\b(?:continue|next scene|keep writing|add more)\b/i.test(latest.content)
+      ? 1_200
+      : 0);
   const lengthRequirement = minimumWords
     ? `This request requires at least ${minimumWords} words of manuscript prose. Meet that target before returning; do not label a shorter scene as complete.`
     : "";
