@@ -63,6 +63,14 @@ const starterPrompts = [
   "Outline the next chapter",
 ];
 
+function titleKey(value: string) {
+  return value
+    .replace(/["“”]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase();
+}
+
 export function AIChatSidebar() {
   const activeFile = useActiveFile();
   const editorState = useEditorState();
@@ -199,6 +207,72 @@ export function AIChatSidebar() {
       ]);
       return;
     }
+    const renameWorkspace = content.match(
+      /^(?:please\s+)?rename\s+(?:this\s+)?workspace\s+(?:to|as)\s+(.+?)\s*[.!]?$/i,
+    );
+    if (renameWorkspace) {
+      const title = renameWorkspace[1].trim().replace(/["“”]/g, "");
+      if (title) {
+        await editorStore.renameWorkspace(title);
+        setMessages((current) => [
+          ...current,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Renamed this workspace to **${title}**.`,
+            timestamp: new Date(),
+          },
+        ]);
+        setInput("");
+        return;
+      }
+    }
+    const deletePage = content.match(
+      /^(?:please\s+)?delete\s+(?:the\s+)?(?:page|document|file)(?:\s+(?:called|named))?\s+(.+?)\s*[.!]?$/i,
+    );
+    if (deletePage) {
+      const requestedTitle = deletePage[1];
+      const file = editorState.files.find(
+        (item) => titleKey(item.title) === titleKey(requestedTitle),
+      );
+      if (file) await editorStore.deleteFile(file.id);
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: file
+            ? `Deleted **${file.title}**.`
+            : `I could not find a page named **${requestedTitle.trim()}**.`,
+          timestamp: new Date(),
+        },
+      ]);
+      setInput("");
+      return;
+    }
+    const renameNamedPage = content.match(
+      /^(?:please\s+)?rename\s+(?:the\s+)?(?:page|document|file)(?:\s+(?:called|named))?\s+(.+?)\s+(?:to|as)\s+(.+?)\s*[.!]?$/i,
+    );
+    if (renameNamedPage && !/^(?:this|the)$/i.test(renameNamedPage[1].trim())) {
+      const file = editorState.files.find(
+        (item) => titleKey(item.title) === titleKey(renameNamedPage[1]),
+      );
+      const nextTitle = renameNamedPage[2].trim().replace(/["“”]/g, "");
+      if (file && nextTitle) {
+        await editorStore.renameFile(file.id, nextTitle);
+        setMessages((current) => [
+          ...current,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Renamed **${file.title}** to **${nextTitle}**.`,
+            timestamp: new Date(),
+          },
+        ]);
+        setInput("");
+        return;
+      }
+    }
     const rename = content.match(
       /(?:^|[,.;]\s*)(?:please\s+)?rename(?:\s+(?:this|the))?\s+(?:page|document)\s+(?:to|as)\s+([^,.;\n]+)/i,
     );
@@ -315,12 +389,6 @@ export function AIChatSidebar() {
             title: file!.title,
             content: file!.content,
           })) || [];
-      if (activeFile && !contextFiles.some((file) => file.id === activeFile.id))
-        contextFiles.push({
-          id: activeFile.id,
-          title: activeFile.title,
-          content: activeFile.content,
-        });
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -844,10 +912,6 @@ export function AIChatSidebar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <span className="h-4 w-px bg-white/[0.06]" />
-              <span className="truncate px-2 text-[11px] text-zinc-500">
-                {activeFile?.title || "Current document"}
-              </span>
             </div>
           </div>
           {!isOnline && (

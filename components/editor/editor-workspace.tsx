@@ -488,135 +488,137 @@ export function EditorWorkspace() {
 
   return (
     <div className="flex h-full flex-col bg-[#111113]">
-      <div className="flex h-9 items-center justify-between gap-3 border-b border-white/[0.05] px-2.5">
-        <div className="min-w-0 flex items-center gap-2">
-          <FileText size={14} className="text-zinc-500" />
-          <span className="truncate text-[12px] text-zinc-300">
-            {activeFile.title}
-          </span>
-        </div>
-        <div
-          className="flex items-center gap-1"
-          aria-label="Formatting toolbar"
-        >
-          <Select
-            value={
-              (editor?.getAttributes("textStyle").fontFamily as string) ||
-              writingFonts[0].value
-            }
-            onValueChange={(fontFamily) =>
-              editor?.chain().focus().setFontFamily(fontFamily).run()
-            }
+      <div className="overflow-x-auto border-b border-white/[0.05] [scrollbar-width:thin]">
+        <div className="flex h-9 min-w-max items-center justify-between gap-3 px-2.5">
+          <div className="flex items-center gap-2">
+            <FileText size={14} className="text-zinc-500" />
+            <span className="truncate text-[12px] text-zinc-300">
+              {activeFile.title}
+            </span>
+          </div>
+          <div
+            className="flex shrink-0 items-center gap-1"
+            aria-label="Formatting toolbar"
           >
-            <SelectTrigger
-              size="sm"
-              aria-label="Text font"
-              className="h-7 min-w-28 border-white/[0.07] bg-white/[0.025] px-2 text-[11px] text-zinc-400"
+            <Select
+              value={
+                (editor?.getAttributes("textStyle").fontFamily as string) ||
+                writingFonts[0].value
+              }
+              onValueChange={(fontFamily) =>
+                editor?.chain().focus().setFontFamily(fontFamily).run()
+              }
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="border-white/[0.08] bg-[#1b1b1e] text-zinc-100">
-              {writingFonts.map((font) => (
-                <SelectItem key={font.value} value={font.value}>
-                  <span style={{ fontFamily: font.value }}>{font.label}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="mx-1 h-4 w-px bg-white/[0.06]" />
-          <Tool
-            label="Bold"
-            active={editor?.isActive("bold")}
-            onClick={() => editor?.chain().focus().toggleBold().run()}
-          >
-            <Bold size={14} />
-          </Tool>
-          <Tool
-            label="Italic"
-            active={editor?.isActive("italic")}
-            onClick={() => editor?.chain().focus().toggleItalic().run()}
-          >
-            <Italic size={14} />
-          </Tool>
-          <Tool
-            label="Bulleted list"
-            active={editor?.isActive("bulletList")}
-            onClick={() => editor?.chain().focus().toggleBulletList().run()}
-          >
-            <List size={14} />
-          </Tool>
-          <Tool
-            label="Numbered list"
-            active={editor?.isActive("orderedList")}
-            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-          >
-            <ListOrdered size={14} />
-          </Tool>
-          <Tool
-            label="Link"
-            active={editor?.isActive("link")}
-            onClick={setLink}
-          >
-            <Link2 size={14} />
-          </Tool>
-          <Tool
-            label="Insert table"
-            onClick={() =>
-              editor
-                ?.chain()
-                .focus()
-                .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                .run()
-            }
-          >
-            <Table2 size={14} />
-          </Tool>
-          <Tool
-            label="Insert image"
-            onClick={() => imageInput.current?.click()}
-          >
-            <ImagePlus size={14} />
-          </Tool>
-          <Tool
-            label="Find and replace"
-            onClick={() => setShowFind((value) => !value)}
-          >
-            <Search size={14} />
-          </Tool>
-          <input
-            ref={imageInput}
-            className="hidden"
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            multiple
-            onChange={(event) => {
-              const files = Array.from(event.target.files || []);
-              if (files.length && editor)
-                void insertUploadedImages(files, editor.state.selection.from);
-              event.target.value = "";
-            }}
-          />
-          <span className="mx-1 h-4 w-px bg-white/[0.06]" />
-          <Tool
-            label="Undo"
-            disabled={!editor?.can().undo()}
-            onClick={() => editor?.chain().focus().undo().run()}
-          >
-            <Undo2 size={14} />
-          </Tool>
-          <Tool
-            label="Redo"
-            disabled={!editor?.can().redo()}
-            onClick={() => editor?.chain().focus().redo().run()}
-          >
-            <Redo2 size={14} />
-          </Tool>
-          <Tool
-            label="AI assistant"
-            onClick={() => editorStore.toggleRightSidebar()}
-          >
-            <Sparkles size={14} />
-          </Tool>
+              <SelectTrigger
+                size="sm"
+                aria-label="Text font"
+                className="h-7 min-w-28 border-white/[0.07] bg-white/[0.025] px-2 text-[11px] text-zinc-400"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-white/[0.08] bg-[#1b1b1e] text-zinc-100">
+                {writingFonts.map((font) => (
+                  <SelectItem key={font.value} value={font.value}>
+                    <span style={{ fontFamily: font.value }}>{font.label}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="mx-1 h-4 w-px bg-white/[0.06]" />
+            <Tool
+              label="Bold"
+              active={editor?.isActive("bold")}
+              onClick={() => editor?.chain().focus().toggleBold().run()}
+            >
+              <Bold size={14} />
+            </Tool>
+            <Tool
+              label="Italic"
+              active={editor?.isActive("italic")}
+              onClick={() => editor?.chain().focus().toggleItalic().run()}
+            >
+              <Italic size={14} />
+            </Tool>
+            <Tool
+              label="Bulleted list"
+              active={editor?.isActive("bulletList")}
+              onClick={() => editor?.chain().focus().toggleBulletList().run()}
+            >
+              <List size={14} />
+            </Tool>
+            <Tool
+              label="Numbered list"
+              active={editor?.isActive("orderedList")}
+              onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+            >
+              <ListOrdered size={14} />
+            </Tool>
+            <Tool
+              label="Link"
+              active={editor?.isActive("link")}
+              onClick={setLink}
+            >
+              <Link2 size={14} />
+            </Tool>
+            <Tool
+              label="Insert table"
+              onClick={() =>
+                editor
+                  ?.chain()
+                  .focus()
+                  .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                  .run()
+              }
+            >
+              <Table2 size={14} />
+            </Tool>
+            <Tool
+              label="Insert image"
+              onClick={() => imageInput.current?.click()}
+            >
+              <ImagePlus size={14} />
+            </Tool>
+            <Tool
+              label="Find and replace"
+              onClick={() => setShowFind((value) => !value)}
+            >
+              <Search size={14} />
+            </Tool>
+            <input
+              ref={imageInput}
+              className="hidden"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
+              onChange={(event) => {
+                const files = Array.from(event.target.files || []);
+                if (files.length && editor)
+                  void insertUploadedImages(files, editor.state.selection.from);
+                event.target.value = "";
+              }}
+            />
+            <span className="mx-1 h-4 w-px bg-white/[0.06]" />
+            <Tool
+              label="Undo"
+              disabled={!editor?.can().undo()}
+              onClick={() => editor?.chain().focus().undo().run()}
+            >
+              <Undo2 size={14} />
+            </Tool>
+            <Tool
+              label="Redo"
+              disabled={!editor?.can().redo()}
+              onClick={() => editor?.chain().focus().redo().run()}
+            >
+              <Redo2 size={14} />
+            </Tool>
+            <Tool
+              label="AI assistant"
+              onClick={() => editorStore.toggleRightSidebar()}
+            >
+              <Sparkles size={14} />
+            </Tool>
+          </div>
         </div>
       </div>
       {pending && (
@@ -665,16 +667,18 @@ export function EditorWorkspace() {
           />
         )}
       </div>
-      <div className="grid h-6 grid-cols-3 items-center border-t border-white/[0.045] px-2.5 text-[10.5px] text-zinc-600">
-        <span>
-          {words} words · {activeFile.content.length} characters
-        </span>
-        <span className="justify-self-center">
-          <SaveState status={activeFile.saveStatus} />
-        </span>
-        <span className="justify-self-end">
-          Rich document v1 · revision {activeFile.revision}
-        </span>
+      <div className="overflow-x-auto border-t border-white/[0.045] [scrollbar-width:thin]">
+        <div className="grid h-6 min-w-[440px] grid-cols-3 items-center px-2.5 text-[10.5px] text-zinc-600">
+          <span>
+            {words} words · {activeFile.content.length} characters
+          </span>
+          <span className="justify-self-center">
+            <SaveState status={activeFile.saveStatus} />
+          </span>
+          <span className="justify-self-end">
+            Rich document v1 · revision {activeFile.revision}
+          </span>
+        </div>
       </div>
       {inlineRequest && (
         <>
