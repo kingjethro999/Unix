@@ -55,3 +55,24 @@ test("serializes only canonical manuscript structures", () => {
     /writing_rules|prompt|chat_messages/,
   );
 });
+
+import {
+  documentToText,
+  normalizeProse,
+  textToDocument,
+} from "../lib/document.ts";
+
+test("converts AI prose into ordinary paragraphs without spacer blocks", () => {
+  const document = textToDocument(
+    "First paragraph.\n\n\n\nSecond paragraph.\n\nThird paragraph.",
+  );
+  assert.equal(document.content?.length, 3);
+  assert.equal(
+    documentToText(document),
+    "First paragraph.\nSecond paragraph.\nThird paragraph.",
+  );
+});
+
+test("removes malformed leading AI metadata from manuscript prose", () => {
+  assert.equal(normalizeProse("{}:@\n\nA real opening."), "A real opening.");
+});

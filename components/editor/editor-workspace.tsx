@@ -87,6 +87,8 @@ const writingFonts = [
   },
 ] as const;
 
+const writingFontSizes = [10, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36];
+
 export function EditorWorkspace() {
   const activeFile = useActiveFile();
   const [editorTick, setEditorTick] = useState(0);
@@ -535,6 +537,28 @@ export function EditorWorkspace() {
                 ))}
               </SelectContent>
             </Select>
+            <input
+              aria-label="Font size"
+              type="number"
+              min="8"
+              max="96"
+              list="unix-font-sizes"
+              value={(
+                (editor?.getAttributes("textStyle").fontSize as string) ||
+                "16px"
+              ).replace("px", "")}
+              onChange={(event) => {
+                const size = Number(event.target.value);
+                if (Number.isFinite(size) && size >= 8 && size <= 96)
+                  editor?.chain().focus().setFontSize(`${size}px`).run();
+              }}
+              className="h-7 w-12 rounded-md border border-white/[0.07] bg-white/[0.025] px-1.5 text-[11px] text-zinc-300 outline-none transition focus:border-white/[0.16]"
+            />
+            <datalist id="unix-font-sizes">
+              {writingFontSizes.map((size) => (
+                <option key={size} value={size} />
+              ))}
+            </datalist>
             <span className="mx-1 h-4 w-px bg-white/[0.06]" />
             <Tool
               label="Bold"

@@ -5,28 +5,38 @@ export const EMPTY_DOCUMENT: JSONContent = {
   content: [{ type: "paragraph" }],
 };
 
+export function normalizeProse(text: string) {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .replace(/^\s*(?:\{\}\s*[:@]+\s*)+/, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function textToDocument(text: string): JSONContent {
+  const blocks = normalizeProse(text)
+    .split(/\n{2,}/)
+    .filter((block, index, values) => block.trim() || values.length === 1);
   return {
     type: "doc",
-    content: text
-      .replace(/\r\n/g, "\n")
-      .split("\n")
-      .map((line) => {
-        const heading = /^(#{1,3})\s+(.*)$/.exec(line);
-        if (heading) {
-          return {
-            type: "heading",
-            attrs: { level: heading[1].length },
-            content: heading[2]
-              ? [{ type: "text", text: heading[2] }]
-              : undefined,
-          };
-        }
+    content: blocks.map((block) => {
+      const heading = /^(#{1,3})\s+([^\n]*)/.exec(block);
+      if (heading) {
         return {
-          type: "paragraph",
-          content: line ? [{ type: "text", text: line }] : undefined,
+          type: "heading",
+          attrs: { level: heading[1].length },
+          content: heading[2]
+            ? [{ type: "text", text: heading[2] }]
+            : undefined,
         };
-      }),
+      }
+      const line = block.replace(/\n+/g, " ").trim();
+      return {
+        type: "paragraph",
+        content: line ? [{ type: "text", text: line }] : undefined,
+      };
+    }),
   };
 }
 

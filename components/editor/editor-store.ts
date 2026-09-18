@@ -14,6 +14,7 @@ import {
 import {
   EMPTY_DOCUMENT,
   documentToText,
+  normalizeProse,
   normalizeDocument,
   textToDocument,
 } from "@/lib/document";
@@ -562,7 +563,8 @@ export const editorStore = {
   },
   proposeDocumentAppend(fileId: string, text: string, description?: string) {
     const file = state.files.find((item) => item.id === fileId);
-    if (!file || !text.trim()) return false;
+    const normalizedText = normalizeProse(text);
+    if (!file || !normalizedText) return false;
     patchFile(fileId, {
       pendingEdit: {
         id: crypto.randomUUID(),
@@ -571,7 +573,7 @@ export const editorStore = {
         from: 0,
         to: 0,
         expectedText: "",
-        replacementText: text,
+        replacementText: normalizedText,
         contextBefore: file.content.slice(-1000),
         contextAfter: "",
         description: description || "Append AI draft",
