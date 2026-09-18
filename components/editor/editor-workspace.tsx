@@ -537,12 +537,31 @@ export function EditorWorkspace() {
                 ))}
               </SelectContent>
             </Select>
+            <select
+              aria-label="Font size presets"
+              value={(
+                (editor?.getAttributes("textStyle").fontSize as string) ||
+                "16px"
+              ).replace("px", "")}
+              onChange={(event) => {
+                const size = Number(event.target.value);
+                if (Number.isFinite(size))
+                  editor?.chain().focus().setFontSize(`${size}px`).run();
+              }}
+              className="h-7 rounded-md border border-white/[0.07] bg-white/[0.025] px-1.5 text-[11px] text-zinc-300 outline-none transition focus:border-white/[0.16]"
+              title="Font size presets"
+            >
+              {writingFontSizes.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
             <input
-              aria-label="Font size"
+              aria-label="Custom font size"
               type="number"
               min="8"
               max="96"
-              list="unix-font-sizes"
               value={(
                 (editor?.getAttributes("textStyle").fontSize as string) ||
                 "16px"
@@ -552,13 +571,9 @@ export function EditorWorkspace() {
                 if (Number.isFinite(size) && size >= 8 && size <= 96)
                   editor?.chain().focus().setFontSize(`${size}px`).run();
               }}
-              className="h-7 w-12 rounded-md border border-white/[0.07] bg-white/[0.025] px-1.5 text-[11px] text-zinc-300 outline-none transition focus:border-white/[0.16]"
+              className="h-7 w-11 rounded-md border border-white/[0.07] bg-white/[0.025] px-1.5 text-[11px] text-zinc-300 outline-none transition focus:border-white/[0.16]"
+              title="Custom font size"
             />
-            <datalist id="unix-font-sizes">
-              {writingFontSizes.map((size) => (
-                <option key={size} value={size} />
-              ))}
-            </datalist>
             <span className="mx-1 h-4 w-px bg-white/[0.06]" />
             <Tool
               label="Bold"
